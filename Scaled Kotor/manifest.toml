@@ -1,7 +1,7 @@
 [patch]
 id = "scaled-kotor"
 name = "Scaled Kotor"
-version = "1.10.2"
+version = "1.10.3"
 author = "J"
 description = "Unlocks widescreen resolutions and provides resolution layout sizing configurable through ScaledKotor.ini."
 

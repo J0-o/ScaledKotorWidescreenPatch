@@ -1,7 +1,7 @@
 [patch]
 id = "font-scale-2x-v1"
 name = "Scaled Font"
-version = "1.6.4"
+version = "1.6.5"
 author = "J"
 description = "Scales loaded game fonts relative to a 1x baseline at 1080p."
 

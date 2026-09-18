@@ -37,8 +37,8 @@ bool stringEquals(const char* actual, const char* expected) {
 
 void centerControlFor4096Background(char* control,
                                     const UniversalScaleState& scale) {
-    const int backgroundWidth = static_cast<int>(
-        (static_cast<long long>(scale.uiWidth) * ImageWidth) / CenterSafeWidth);
+    const int backgroundWidth = divideRoundedNearest(
+        static_cast<long long>(scale.uiWidth) * ImageWidth, CenterSafeWidth);
     const int backgroundLeft = (scale.screenWidth - backgroundWidth) / 2;
 
     *reinterpret_cast<int*>(control + BackgroundLeftOffset) = backgroundLeft;

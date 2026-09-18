@@ -13,5 +13,6 @@ struct Rect {
 
 void scaleTargetControls(void* owner);
 void correctTargetVerticalBounds(void* hud);
+void roundTargetNameHeight(void* owner);
 
 }

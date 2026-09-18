@@ -13,6 +13,9 @@ constexpr DWORD TargetMenuBase = 0x54;
 constexpr DWORD TargetMenuStride = 0x71C;
 constexpr DWORD PauseControlOffset = 0xC0AC;
 constexpr DWORD TargetClampHeightOffset = 0x1684;
+constexpr DWORD TargetNameControlOffset = 0x15CC;
+constexpr DWORD TextRenderableOffset = 0xE4;
+constexpr int TargetNameBaseLineHeight = 16;
 
 constexpr DWORD TargetMenuControlOffsets[] = {
     0x000, // BTN_TARGETn
@@ -153,6 +156,38 @@ void correctTargetVerticalBounds(void* hud) {
     clampHeight += scaleUiValueFromBase(
         PauseRect.top, BaseHeight, UiBaseHeight, *scale) - PauseRect.top;
     *reinterpret_cast<int*>(base + TargetClampHeightOffset) = clampHeight;
+}
+
+void roundTargetNameHeight(void* owner) {
+    const UniversalScaleState* scale = ResolutionScale::get();
+    if (!owner || !scale || !scale->contentScalingEnabled ||
+        scale->contentScaleNumerator <= 0 ||
+        scale->contentScaleDenominator <= 0) {
+        return;
+    }
+
+    const long long numerator = static_cast<long long>(TargetNameBaseLineHeight) *
+        scale->contentScaleNumerator * 4;
+    const long long denominator =
+        static_cast<long long>(scale->contentScaleDenominator) * 9;
+    const int roundedHeight = static_cast<int>(numerator / denominator);
+
+    char* label = static_cast<char*>(owner) + TargetNameControlOffset;
+    Rect rect = {};
+    if (!safeReadRect(label + 0x04, rect) || rect.height >= roundedHeight) {
+        return;
+    }
+
+    __try {
+        char* renderable = *reinterpret_cast<char**>(label + TextRenderableOffset);
+        rect.height = roundedHeight;
+        *reinterpret_cast<Rect*>(label + 0x04) = rect;
+        if (renderable) {
+            *reinterpret_cast<int*>(renderable + 0x10) = roundedHeight;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
 }
 
 }

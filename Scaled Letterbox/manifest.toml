@@ -1,7 +1,7 @@
 [patch]
 id = "letterbox-patch-v1"
 name = "Scaled Letterbox"
-version = "1.0.9"
+version = "1.0.10"
 author = "J"
 description = "Fixes dialogue letterbox size to be consistent across resolutions."
 

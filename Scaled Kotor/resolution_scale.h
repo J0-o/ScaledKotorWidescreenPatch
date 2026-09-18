@@ -21,13 +21,24 @@ struct UniversalScaleState {
 
 typedef void(__cdecl *ResolutionRefreshCallback)();
 
+inline int divideRoundedNearest(long long numerator, long long denominator) {
+    if (denominator <= 0) {
+        return static_cast<int>(numerator);
+    }
+
+    const long long half = denominator / 2;
+    return numerator >= 0 ?
+        static_cast<int>((numerator + half) / denominator) :
+        -static_cast<int>((-numerator + half) / denominator);
+}
+
 inline int scaleUiValue(int value, const UniversalScaleState& scale) {
     if (scale.scaleNumerator <= 0 || scale.scaleDenominator <= 0) {
         return value;
     }
 
-    return static_cast<int>(
-        (static_cast<long long>(value) * scale.scaleNumerator) /
+    return divideRoundedNearest(
+        static_cast<long long>(value) * scale.scaleNumerator,
         scale.scaleDenominator);
 }
 
@@ -38,8 +49,8 @@ inline int scaleContentValue(int value, const UniversalScaleState& scale) {
         return value;
     }
 
-    return static_cast<int>(
-        (static_cast<long long>(value) * scale.contentScaleNumerator) /
+    return divideRoundedNearest(
+        static_cast<long long>(value) * scale.contentScaleNumerator,
         scale.contentScaleDenominator);
 }
 
@@ -50,9 +61,9 @@ inline int scaleUiValueFromBase(int value, int sourceBase, int uiBase,
         return value;
     }
 
-    return static_cast<int>(
-        (static_cast<long long>(value) * uiBase * scale.scaleNumerator) /
-        (static_cast<long long>(sourceBase) * scale.scaleDenominator));
+    return divideRoundedNearest(
+        static_cast<long long>(value) * uiBase * scale.scaleNumerator,
+        static_cast<long long>(sourceBase) * scale.scaleDenominator);
 }
 
 inline int unscaleUiValueToBase(int value, int sourceBase, int uiBase,
@@ -62,9 +73,9 @@ inline int unscaleUiValueToBase(int value, int sourceBase, int uiBase,
         return value;
     }
 
-    return static_cast<int>(
-        (static_cast<long long>(value) * sourceBase * scale.scaleDenominator) /
-        (static_cast<long long>(uiBase) * scale.scaleNumerator));
+    return divideRoundedNearest(
+        static_cast<long long>(value) * sourceBase * scale.scaleDenominator,
+        static_cast<long long>(uiBase) * scale.scaleNumerator);
 }
 
 inline float twoXScaleAdjustment(const UniversalScaleState& scale) {
@@ -85,9 +96,9 @@ inline int scaleTwoXValue(int value, const UniversalScaleState& scale) {
         return value;
     }
 
-    return static_cast<int>(
-        (static_cast<long long>(value) * scale.contentScaleNumerator * 4) /
-        (static_cast<long long>(scale.contentScaleDenominator) * 9));
+    return divideRoundedNearest(
+        static_cast<long long>(value) * scale.contentScaleNumerator * 4,
+        static_cast<long long>(scale.contentScaleDenominator) * 9);
 }
 
 inline bool isIdentityUiScale(const UniversalScaleState& scale) {

@@ -1,7 +1,7 @@
 [patch]
 id = "scaled-floating-target-actions-v1"
 name = "Scaled Floating Target + Actions"
-version = "1.1.2"
+version = "1.1.4"
 author = "J"
 description = "Scales and positions the selected target name, health display, and floating target action controls."
 

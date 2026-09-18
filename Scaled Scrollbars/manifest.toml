@@ -1,7 +1,7 @@
 [patch]
 id = "scaled-scrollbars-v1"
 name = "Scaled Scrollbars"
-version = "2.5.0"
+version = "2.5.1"
 author = "J"
 description = "Scales all scrollbars from the resolution-derived Scaled Kotor layout scale."
 

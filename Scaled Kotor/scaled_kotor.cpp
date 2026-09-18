@@ -306,10 +306,10 @@ bool updateScaleState() {
         contentScaleDenominator = scaleDenominator;
     }
 
-    const int uiWidth = static_cast<int>(
-        (static_cast<long long>(BaseWidth) * scaleNumerator) / scaleDenominator);
-    const int uiHeight = static_cast<int>(
-        (static_cast<long long>(BaseHeight) * scaleNumerator) / scaleDenominator);
+    const int uiWidth = divideRoundedNearest(
+        static_cast<long long>(BaseWidth) * scaleNumerator, scaleDenominator);
+    const int uiHeight = divideRoundedNearest(
+        static_cast<long long>(BaseHeight) * scaleNumerator, scaleDenominator);
 
     scaleState = {
         screenWidth,

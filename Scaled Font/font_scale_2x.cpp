@@ -1,6 +1,8 @@
 #include "font_scale_2x.h"
 #include "../Common/ResolutionScale.h"
 
+#include <cmath>
+
 namespace FontScale2x {
 
 namespace {
@@ -18,12 +20,25 @@ constexpr DWORD RenderableTextureWrapperOffset = 0x18;
 constexpr DWORD GetFontInfoAddress = 0x0041EFA0;
 constexpr DWORD UpdateAllFontsAddress = 0x0040B420;
 constexpr DWORD MaxFontsPerRefresh = 64;
+constexpr float FontMetricPixelsPerUnit = 100.0f;
+constexpr float FontMetricFloorEpsilon = 0.00001f;
+constexpr DWORD FontMetricOffsets[] = {
+    FontHeightOffset, BaselineHeightOffset, TextureWidthOffset,
+    SpacingROffset, SpacingBOffset,
+};
+
+struct FontMetricState {
+    void* fontInfo;
+    float unrounded[sizeof(FontMetricOffsets) / sizeof(FontMetricOffsets[0])];
+};
 
 float g_appliedScale = 0.0f;
 float g_refreshAdjustment = 1.0f;
 bool g_refreshInProgress = false;
 void* g_scaledFonts[MaxFontsPerRefresh] = {};
 DWORD g_scaledFontCount = 0;
+FontMetricState g_fontMetricStates[MaxFontsPerRefresh] = {};
+DWORD g_fontMetricStateCount = 0;
 
 bool safeReadDword(const void* address, DWORD& value) {
     __try {
@@ -60,7 +75,33 @@ bool hasSaneFontMetrics(char* fontInfo) {
         textureWidth > 0.0f && textureWidth < 4096.0f;
 }
 
-void multiplyFontInfo(void* fontInfoPtr, float scale) {
+FontMetricState* findFontMetricState(void* fontInfo) {
+    for (DWORD i = 0; i < g_fontMetricStateCount; ++i) {
+        if (g_fontMetricStates[i].fontInfo == fontInfo) {
+            return &g_fontMetricStates[i];
+        }
+    }
+    return nullptr;
+}
+
+FontMetricState* createFontMetricState(void* fontInfo) {
+    if (g_fontMetricStateCount == MaxFontsPerRefresh) {
+        return nullptr;
+    }
+
+    FontMetricState* state = &g_fontMetricStates[g_fontMetricStateCount++];
+    *state = {};
+    state->fontInfo = fontInfo;
+    return state;
+}
+
+float floorFontMetricToPixel(float value) {
+    return std::floor(
+        value * FontMetricPixelsPerUnit + FontMetricFloorEpsilon) /
+        FontMetricPixelsPerUnit;
+}
+
+void multiplyFontInfo(void* fontInfoPtr, float scale, bool loadedBase) {
     if (!fontInfoPtr || scale <= 0.0f) {
         return;
     }
@@ -71,12 +112,23 @@ void multiplyFontInfo(void* fontInfoPtr, float scale) {
             return;
         }
 
-        const DWORD offsets[] = {
-            FontHeightOffset, BaselineHeightOffset, TextureWidthOffset,
-            SpacingROffset, SpacingBOffset,
-        };
-        for (DWORD offset : offsets) {
-            *reinterpret_cast<float*>(fontInfo + offset) *= scale;
+        FontMetricState* state = findFontMetricState(fontInfoPtr);
+        const bool haveStoredMetrics = state != nullptr;
+        if (!state) {
+            state = createFontMetricState(fontInfoPtr);
+        }
+
+        for (DWORD i = 0;
+             i < sizeof(FontMetricOffsets) / sizeof(FontMetricOffsets[0]);
+             ++i) {
+            float* metric = reinterpret_cast<float*>(
+                fontInfo + FontMetricOffsets[i]);
+            const float unrounded = loadedBase || !haveStoredMetrics ?
+                *metric * scale : state->unrounded[i] * scale;
+            if (state) {
+                state->unrounded[i] = unrounded;
+            }
+            *metric = floorFontMetricToPixel(unrounded);
         }
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
@@ -147,7 +199,7 @@ void scaleLoadedTextureMetadata(void* texture) {
     }
 
     void* fontInfo = fontInfoFromTexture(texture);
-    multiplyFontInfo(fontInfo, currentScale);
+    multiplyFontInfo(fontInfo, currentScale, true);
 
     // UpdateAllFonts can load a new font partway through a resolution refresh.
     // Its metadata is now at the new absolute scale, so later GUI strings that
@@ -164,7 +216,7 @@ void scaleResetGuiStringFont(void* guiString) {
 
     void* fontInfo = fontInfoFromGuiString(guiString);
     if (fontInfo && markFontForCurrentRefresh(fontInfo)) {
-        multiplyFontInfo(fontInfo, g_refreshAdjustment);
+        multiplyFontInfo(fontInfo, g_refreshAdjustment, false);
     }
 }
 

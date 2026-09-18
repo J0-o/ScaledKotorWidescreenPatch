@@ -12,6 +12,21 @@ exclude_from_restore = []
 source = "esi"
 type = "pointer"
 
+# The text layout stores a truncated integer height for LBL_NAME, while the
+# vertically centered renderer compares against the original floating-point
+# font height. Round the target label immediately before drawing it so its
+# integer extent matches the rounded font metrics.
+[[hooks]]
+address = 0x00685F3F
+type = "detour"
+function = "roundFloatingTargetNameHeight"
+original_bytes = [0x8B, 0x96, 0xCC, 0x15, 0x00, 0x00]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
 # The HUD constructor has derived the floating target's vertical clamp rectangle
 # at hud+0x1678 and completed the following control setup call. Its height at
 # +0x1684 uses the still-vanilla TB_PAUSE top.

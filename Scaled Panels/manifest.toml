@@ -1,7 +1,7 @@
 [patch]
 id = "small-root-panel-scale-test-v1"
 name = "Scaled Panels"
-version = "1.3.0"
+version = "1.3.2"
 author = "J"
 description = "Scales varios panels. QORCPNL, QUICKPNL, LEVELUPPNL, and CUSTPNL"
 

@@ -1,7 +1,7 @@
 [patch]
 id = "scaled-menu-borders"
 name = "Scaled Menu Borders"
-version = "1.4.0"
+version = "1.4.1"
 author = "J"
 description = "Dynamically adjusts menu borders to fit most resolutions."
 

@@ -2,3 +2,4 @@ LIBRARY "ScaledFloatingTargetActions"
 EXPORTS
     scaleFloatingTargetControls
     correctFloatingTargetVerticalBounds
+    roundFloatingTargetNameHeight

@@ -84,7 +84,8 @@ int scaleValue(int value, int target, int source) {
         return value;
     }
 
-    return static_cast<int>((static_cast<long long>(value) * target) / source);
+    return divideRoundedNearest(
+        static_cast<long long>(value) * target, source);
 }
 
 bool isFourByThreeRoot(const Rect& rect) {

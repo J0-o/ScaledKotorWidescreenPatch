@@ -1,12 +1,12 @@
 # QORCPNL, QUICKPNL, LEVELUPPNL, and CUSTPNL are small independent root panels, not
 # children of the main character/level-up panel roots. MenuScale intentionally
-# ignores small roots, so scale these constructors after StopLoadFromLayout has
-# populated the panel tree.
+# ignores small roots, so scale each panel after its constructor's final native
+# setup call has completed.
 [[hooks]]
-address = 0x006F0C4B
+address = 0x006F0D0E
 type = "detour"
 function = "scaleQuickOrCustomPanel"
-original_bytes = [0x8B, 0x86, 0xC0, 0x0B, 0x00, 0x00]
+original_bytes = [0x8B, 0x46, 0x44, 0x8B, 0x4C, 0x24, 0x24]
 exclude_from_restore = []
 
 [[hooks.parameters]]
@@ -14,10 +14,10 @@ source = "esi"
 type = "pointer"
 
 [[hooks]]
-address = 0x006EF9CC
+address = 0x006EFAE9
 type = "detour"
 function = "scaleCustomPanel"
-original_bytes = [0x68, 0x20, 0xF1, 0x6E, 0x00, 0x56]
+original_bytes = [0x8B, 0x46, 0x44, 0x83, 0xC8, 0x60]
 exclude_from_restore = []
 
 [[hooks.parameters]]
@@ -36,10 +36,10 @@ source = "esi"
 type = "pointer"
 
 [[hooks]]
-address = 0x006F0607
+address = 0x006F06B2
 type = "detour"
 function = "scaleQuickPanel"
-original_bytes = [0x68, 0x10, 0xFE, 0x6E, 0x00, 0x56]
+original_bytes = [0x8B, 0x46, 0x44, 0x83, 0xC8, 0x60]
 exclude_from_restore = []
 
 [[hooks.parameters]]

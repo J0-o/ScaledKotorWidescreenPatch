@@ -16,6 +16,14 @@ extern "C" void __cdecl correctFloatingTargetVerticalBounds(void* hud) {
     }
 }
 
+extern "C" void __cdecl roundFloatingTargetNameHeight(void* owner) {
+    __try {
+        FloatingTargetScale::roundTargetNameHeight(owner);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
     UNREFERENCED_PARAMETER(instance);
     UNREFERENCED_PARAMETER(reason);
