@@ -24,7 +24,6 @@ constexpr int StatusSummaryButtonBaseHeight = 22;
 constexpr int StatusSummaryButtonBaseBottomMargin = 10;
 constexpr DWORD MessageBoxOkButtonFinalReturn = 0x0062588D;
 constexpr DWORD MessageBoxCancelButtonFinalReturn = 0x006258DB;
-constexpr DWORD MessageBoxFrameOffset = 0x74;
 constexpr DWORD MessageBoxFrameIconOffset = 0x1B4;
 constexpr DWORD MessageBoxIconFillStyleOffset =
     MessageBoxFrameIconOffset + 0x5C + 0x30;
@@ -80,11 +79,9 @@ struct PanelSnapshot {
 
 struct MessageBoxSnapshot {
     char* owner;
-    Rect frame;
     Rect okButton;
     Rect cancelButton;
     Rect message;
-    bool frameValid;
     bool okButtonValid;
     bool cancelButtonValid;
     bool messageValid;
@@ -122,11 +119,17 @@ bool hasUsefulRect(const Rect& rect) {
 
 Rect scaledRect(const Rect& rect, const UniversalScaleState& scale) {
     return {
-        scaleContentValue(rect.left, scale),
-        scaleContentValue(rect.top, scale),
-        scaleContentValue(rect.width, scale),
-        scaleContentValue(rect.height, scale),
+        scaleTwoXValue(rect.left, scale),
+        scaleTwoXValue(rect.top, scale),
+        scaleTwoXValue(rect.width, scale),
+        scaleTwoXValue(rect.height, scale),
     };
+}
+
+bool isIdentityPopupScale(const UniversalScaleState& scale) {
+    return !scale.contentScalingEnabled ||
+        static_cast<long long>(scale.contentScaleNumerator) * 4 ==
+        static_cast<long long>(scale.contentScaleDenominator) * 9;
 }
 
 Rect placedRoot(const Rect& rect, const UniversalScaleState& scale,
@@ -303,7 +306,7 @@ void writeCodeValue(DWORD address, DWORD value) {
 
 void updateFitCeilings(const UniversalScaleState& scale) {
     writeCodeValue(MessageBoxIconInsetOperand,
-        static_cast<DWORD>(scaleContentValue(32, scale)));
+        static_cast<DWORD>(scaleTwoXValue(32, scale)));
     writeCodeValue(MessageBoxFitWidthOperand1,
         static_cast<DWORD>(scale.screenWidth));
     writeCodeValue(MessageBoxFitHeightOperand1,
@@ -324,25 +327,22 @@ void captureMessageBox(MessageBoxSnapshot& snapshot, char* owner) {
     snapshot.owner = owner;
 
     const DWORD offsets[] = {
-        MessageBoxFrameOffset,
         MessageBoxOkButtonOffset,
         MessageBoxCancelButtonOffset,
         MessageBoxControlOffset,
     };
     Rect* destinations[] = {
-        &snapshot.frame,
         &snapshot.okButton,
         &snapshot.cancelButton,
         &snapshot.message,
     };
     bool* valid[] = {
-        &snapshot.frameValid,
         &snapshot.okButtonValid,
         &snapshot.cancelButtonValid,
         &snapshot.messageValid,
     };
 
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 3; ++i) {
         Rect* rect = reinterpret_cast<Rect*>(
             owner + offsets[i] + sizeof(DWORD));
         if (hasUsefulRect(*rect)) {
@@ -369,7 +369,7 @@ void applyMessageBoxIconFillStyle(MessageBoxSnapshot& snapshot,
         return;
     }
 
-    const DWORD style = isIdentityContentScale(scale) ?
+    const DWORD style = isIdentityPopupScale(scale) ?
         snapshot.iconFillStyle : MessageBoxIconStretchFillStyle;
     *fillStyle = (current & ~MessageBoxIconFillStyleMask) |
         (style & MessageBoxIconFillStyleMask);
@@ -438,11 +438,11 @@ void scaleStatusSummaryButton(char* control, Rect& rect,
     }
 
     const int centerX = rect.left + (rect.width / 2);
-    rect.width = scaleContentValue(StatusSummaryButtonBaseWidth, scale);
-    rect.height = scaleContentValue(StatusSummaryButtonBaseHeight, scale);
+    rect.width = scaleTwoXValue(StatusSummaryButtonBaseWidth, scale);
+    rect.height = scaleTwoXValue(StatusSummaryButtonBaseHeight, scale);
     rect.left = centerX - (rect.width / 2);
     rect.top = root.height - rect.height -
-        scaleContentValue(StatusSummaryButtonBaseBottomMargin, scale);
+        scaleTwoXValue(StatusSummaryButtonBaseBottomMargin, scale);
 }
 
 int applyStatusSummaryChildren(const PanelSnapshot& snapshot,
@@ -499,7 +499,7 @@ Rect scaledStatusSummaryRoot(const PanelSnapshot& snapshot,
         ((snapshot.root.height - root.height) / 2);
     if (rightmostText > 0) {
         root.width = rightmostText +
-            scaleContentValue(StatusSummaryRightMargin, scale);
+            scaleTwoXValue(StatusSummaryRightMargin, scale);
         root.left = snapshot.root.left +
             ((snapshot.root.width - root.width) / 2);
     }
@@ -803,7 +803,7 @@ void scaleMessageBoxButtonSetRect(void* controlPtr, DWORD* returnAddressSlot,
     }
 
     const int centerX = rect->left + (rect->width / 2);
-    int width = scaleContentValue(baseline.width, *scale);
+    int width = scaleTwoXValue(baseline.width, *scale);
     Rect* root = reinterpret_cast<Rect*>(owner + sizeof(DWORD));
     const int margin = rect->left > 0 ? rect->left : 0;
     const int maxWidth = root->width - (margin * 2);
@@ -812,22 +812,6 @@ void scaleMessageBoxButtonSetRect(void* controlPtr, DWORD* returnAddressSlot,
     }
     rect->width = width;
     rect->left = centerX - (width / 2);
-}
-
-void scaleMessageBoxAfterFix(void* ownerPtr) {
-    const UniversalScaleState* scale = ResolutionScale::get();
-    char* owner = static_cast<char*>(ownerPtr);
-    const int confirmIndex = confirmPopupIndex(owner);
-    if (!scale || confirmIndex < 0 ||
-        confirmPopupSnapshots[confirmIndex].owner != owner ||
-        messageBoxSnapshots[confirmIndex].owner != owner ||
-        !messageBoxSnapshots[confirmIndex].frameValid) {
-        return;
-    }
-    MessageBoxSnapshot& messageSnapshot =
-        messageBoxSnapshots[confirmIndex];
-    callControlSetRect(owner + MessageBoxFrameOffset,
-        scaledRect(messageSnapshot.frame, *scale));
 }
 
 }

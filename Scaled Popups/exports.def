@@ -9,5 +9,4 @@ EXPORTS
     clearTrackedPopup
     scaleStatusSummarySetRect
     scaleMessageBoxButtonSetRect
-    scaleMessageBoxAfterFix
     refreshResolutionDependentUi

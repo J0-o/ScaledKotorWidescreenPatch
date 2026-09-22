@@ -121,18 +121,6 @@ type = "pointer"
 source = "esp+4"
 type = "pointer"
 
-# FixMessageLabel has returned and ESI is still the confirm-dialog owner.
-[[hooks]]
-address = 0x006271F1
-type = "detour"
-function = "scaleMessageBoxAfterFix"
-original_bytes = [0x8D, 0x4C, 0x24, 0x18, 0xC7, 0x44, 0x24, 0x10, 0xFF, 0xFF, 0xFF, 0xFF]
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
 # Resolution controls are populated after the common layout-finalizer, so keep
 # the proven late hook after display-mode enumeration.
 [[hooks]]

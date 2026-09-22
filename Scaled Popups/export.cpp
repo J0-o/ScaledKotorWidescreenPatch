@@ -73,14 +73,6 @@ extern "C" void __cdecl scaleMessageBoxButtonSetRect(void* control, DWORD* retur
     }
 }
 
-extern "C" void __cdecl scaleMessageBoxAfterFix(void* owner) {
-    __try {
-        PopupDialogScaleTest::scaleMessageBoxAfterFix(owner);
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
-    }
-}
-
 extern "C" void __cdecl refreshResolutionDependentUi() {
     __try {
         PopupDialogScaleTest::refreshTrackedPopups();

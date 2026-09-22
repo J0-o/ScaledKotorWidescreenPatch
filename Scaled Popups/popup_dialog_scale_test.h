@@ -21,6 +21,5 @@ void clearTrackedPopup(void* owner);
 void restoreFitCeilings();
 void scaleStatusSummarySetRect(void* control, DWORD* returnAddressSlot, DWORD* rectPointerSlot);
 void scaleMessageBoxButtonSetRect(void* control, DWORD* returnAddressSlot, DWORD* rectPointerSlot);
-void scaleMessageBoxAfterFix(void* owner);
 
 }
