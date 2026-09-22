@@ -1,7 +1,7 @@
 [patch]
 id = "container-popup-scale-test-v1"
 name = "Scaled Container Popup"
-version = "1.5.3"
+version = "1.5.5"
 author = "J"
 description = "Scales the container/loot popup and its buttons with the configurable content factor."
 

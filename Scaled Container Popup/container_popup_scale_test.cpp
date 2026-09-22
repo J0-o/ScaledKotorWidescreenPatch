@@ -38,12 +38,24 @@ bool hasUsefulRect(const Rect& rect) {
         rect.width < 8192 && rect.height < 8192;
 }
 
+int scaleContainerValue(int value, const UniversalScaleState& scale) {
+    if (!scale.contentScalingEnabled ||
+        scale.contentScaleNumerator <= 0 ||
+        scale.contentScaleDenominator <= 0) {
+        return value;
+    }
+
+    return divideRoundedNearest(
+        static_cast<long long>(value) * scale.contentScaleNumerator * 8,
+        static_cast<long long>(scale.contentScaleDenominator) * 9);
+}
+
 Rect scaledChildRect(const Rect& rect, const UniversalScaleState& scale) {
     return {
-        scaleContentValue(rect.left, scale),
-        scaleContentValue(rect.top, scale),
-        scaleContentValue(rect.width, scale),
-        scaleContentValue(rect.height, scale),
+        scaleContainerValue(rect.left, scale),
+        scaleContainerValue(rect.top, scale),
+        scaleContainerValue(rect.width, scale),
+        scaleContainerValue(rect.height, scale),
     };
 }
 
