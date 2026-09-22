@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "GameAPI/CExoIni.h"
-#include "GameAPI/CExoString.h"
 #include "GameAPI/GameVersion.h"
 #include "resolution_scale.h"
 
@@ -13,6 +11,7 @@ namespace {
 constexpr uintptr_t ScreenWidthAddress = 0x0078D1D4;
 constexpr uintptr_t ScreenHeightAddress = 0x0078D1D8;
 constexpr uintptr_t CenterGuiRootAddress = 0x0040A600;
+constexpr uintptr_t ActivateRenderWindowAddress = 0x00401E00;
 constexpr uintptr_t VirtualMachinePointerAddress = 0x007A3A00;
 constexpr uintptr_t AppManagerPointerAddress = 0x007A39FC;
 constexpr uintptr_t PreviousAntiAliasAddress = 0x0078D440;
@@ -26,12 +25,11 @@ constexpr int DefaultScreenHeight = 600;
 constexpr int BaseWidth = 640;
 constexpr int BaseHeight = 480;
 constexpr int MinimumContentScaleHeight = 1080;
-constexpr int DefaultOverrideScaleFactor = 0;
-constexpr int DefaultScaleFactor = 4;
+constexpr int DefaultScaleFactor = 12;
+constexpr double DefaultAdditionalScaleFactor = 1.2;
 
 char IniFile[] = "ScaledKotor.ini";
 char IniSection[] = "Scaled Kotor";
-char OverrideScaleFactorKey[] = "OverrideScaleFactor";
 char ScaleFactorKey[] = "ScaleFactor";
 
 UniversalScaleState scaleState = {
@@ -49,8 +47,7 @@ UniversalScaleState scaleState = {
 
 bool settingsLoaded = false;
 bool scaleStateInitialized = false;
-bool overrideScaleFactor = false;
-double manualScaleFactor = DefaultScaleFactor;
+double additionalScaleFactor = DefaultAdditionalScaleFactor;
 constexpr int MaxResolutionRefreshCallbacks = 32;
 ResolutionRefreshCallback refreshCallbacks[MaxResolutionRefreshCallbacks] = {};
 
@@ -179,59 +176,26 @@ bool pathBesideExe(const char* name, char* output, DWORD size) {
 }
 
 bool readIniInt(const char* path, char* key, int& value) {
-    CExoIni ini;
-    CExoString text;
-    CExoString filename(const_cast<char*>(path));
-    CExoString category(IniSection);
-    CExoString entryKey(key);
-    if (ini.ReadIniEntry(&text, &filename, &category, &entryKey) == 0) {
-        return false;
-    }
-
-    char* raw = text.GetCStr();
-    if (!raw) {
-        return false;
-    }
-
-    value = atoi(raw);
-    return true;
-}
-
-bool readIniDouble(const char* path, char* key, double& value) {
-    CExoIni ini;
-    CExoString text;
-    CExoString filename(const_cast<char*>(path));
-    CExoString category(IniSection);
-    CExoString entryKey(key);
-    if (ini.ReadIniEntry(&text, &filename, &category, &entryKey) == 0) {
-        return false;
-    }
-
-    char* raw = text.GetCStr();
-    if (!raw) {
+    char raw[64] = {};
+    if (GetPrivateProfileStringA(
+            IniSection, key, nullptr, raw, sizeof(raw), path) == 0) {
         return false;
     }
 
     char* end = nullptr;
-    const double parsed = strtod(raw, &end);
-    if (end == raw || parsed <= 0.0) {
+    const long parsed = strtol(raw, &end, 10);
+    if (end == raw || *end != '\0' || parsed <= 0) {
         return false;
     }
 
-    value = parsed;
+    value = static_cast<int>(parsed);
     return true;
 }
 
 void writeIniInt(const char* path, char* key, int value) {
     char buffer[16];
     sprintf(buffer, "%d", value);
-
-    CExoIni ini;
-    CExoString text(buffer);
-    CExoString filename(const_cast<char*>(path));
-    CExoString category(IniSection);
-    CExoString entryKey(key);
-    ini.WriteIniEntry(&text, &filename, &category, &entryKey);
+    WritePrivateProfileStringA(IniSection, key, buffer, path);
 }
 
 void loadSettings() {
@@ -245,18 +209,13 @@ void loadSettings() {
         return;
     }
 
-    int overrideValue = DefaultOverrideScaleFactor;
-    if (!readIniInt(path, OverrideScaleFactorKey, overrideValue)) {
-        writeIniInt(path, OverrideScaleFactorKey, DefaultOverrideScaleFactor);
-    }
-
-    double scaleValue = DefaultScaleFactor;
-    if (!readIniDouble(path, ScaleFactorKey, scaleValue)) {
+    int scaleValue = DefaultScaleFactor;
+    if (!readIniInt(path, ScaleFactorKey, scaleValue)) {
         writeIniInt(path, ScaleFactorKey, DefaultScaleFactor);
     }
 
-    overrideScaleFactor = overrideValue != 0;
-    manualScaleFactor = scaleValue;
+    additionalScaleFactor =
+        scaleValue >= 10 ? static_cast<double>(scaleValue) / 10.0 : scaleValue;
 }
 
 int readPositiveInt(uintptr_t address, int fallback) {
@@ -296,14 +255,11 @@ bool updateScaleState() {
         screenHeight >= MinimumContentScaleHeight ? 1 : 0;
     int contentScaleNumerator = 1;
     int contentScaleDenominator = 1;
-    if (contentScalingEnabled && overrideScaleFactor) {
+    if (contentScalingEnabled) {
         contentScaleNumerator =
-            static_cast<int>(manualScaleFactor * 1000.0 + 0.5);
-        contentScaleDenominator = 1000;
-    }
-    else if (contentScalingEnabled) {
-        contentScaleNumerator = scaleNumerator;
-        contentScaleDenominator = scaleDenominator;
+            static_cast<int>(
+                scaleNumerator * additionalScaleFactor * 1000.0 + 0.5);
+        contentScaleDenominator = scaleDenominator * 1000;
     }
 
     const int uiWidth = divideRoundedNearest(
@@ -445,6 +401,11 @@ extern "C" void __cdecl onResolutionModeCommitted(void* guiInGame) {
     invokeRefreshCallback(findKnownRefreshCallback(FontRefreshModuleName));
     refreshAdditionalNativeGuiRoots(guiInGame);
     notifyResolutionRefreshCallbacks();
+
+    // Resolution changes can leave KotOR's keyboard input inactive until the
+    // window is reactivated. This is the same guarded cleanup used after movies.
+    using ActivateRenderWindowFn = void(__cdecl*)();
+    reinterpret_cast<ActivateRenderWindowFn>(ActivateRenderWindowAddress)();
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
