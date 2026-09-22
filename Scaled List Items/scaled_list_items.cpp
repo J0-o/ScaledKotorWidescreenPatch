@@ -10,6 +10,10 @@ constexpr DWORD QuantityWidthShortAddress = 0x006B5339;
 constexpr DWORD QuantityWidthLongAddress = 0x006B533C;
 constexpr DWORD QuantityTopAddress = 0x006B5351;
 constexpr DWORD SkillVisualHeightAddress = 0x006AB8EF;
+constexpr DWORD NormalBorderFlagsOffset = 0x9C;
+constexpr DWORD HighlightBorderFlagsOffset = 0x110;
+constexpr DWORD FillStyleMask = 0x03;
+constexpr DWORD StretchFillStyle = 0x02;
 
 void writeMemory(void* address, const void* value, size_t size) {
     DWORD oldProtect = 0;
@@ -56,6 +60,22 @@ void patchItemVisualConstants(const UniversalScaleState& scale) {
     writeByte(QuantityTopAddress, adjustedByte(0x25, scale));
 }
 
+void stretchItemEntryBorders(void* itemEntry) {
+    if (!itemEntry) {
+        return;
+    }
+
+    const DWORD offsets[] = {
+        NormalBorderFlagsOffset,
+        HighlightBorderFlagsOffset,
+    };
+    for (DWORD offset : offsets) {
+        DWORD* flags = reinterpret_cast<DWORD*>(
+            static_cast<char*>(itemEntry) + offset);
+        *flags = (*flags & ~FillStyleMask) | StretchFillStyle;
+    }
+}
+
 const UniversalScaleState* getScale() {
     return ResolutionScale::get();
 }
@@ -71,12 +91,14 @@ void __cdecl refreshPatchedListConstants() {
 
 }
 
-extern "C" void __cdecl setInventoryItemRowHeight(void* heightSlot) {
+extern "C" void __cdecl setInventoryItemRowHeight(void* itemEntry,
+                                                    void* heightSlot) {
     const UniversalScaleState* scale = getScale();
     if (!scale) {
         return;
     }
 
+    stretchItemEntryBorders(itemEntry);
     writeStackValue(heightSlot, 0x38, *scale);
     patchItemVisualConstants(*scale);
 }

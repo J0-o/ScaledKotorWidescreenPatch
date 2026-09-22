@@ -10,6 +10,10 @@ skip_original_bytes = true
 exclude_from_restore = []
 
 [[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks.parameters]]
 source = "esp+28"
 type = "pointer"
 
@@ -21,6 +25,10 @@ function = "setInventoryItemRowHeight"
 original_bytes = [0xC7, 0x44, 0x24, 0x18, 0x38, 0x00, 0x00, 0x00]
 skip_original_bytes = true
 exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
 
 [[hooks.parameters]]
 source = "esp+24"
