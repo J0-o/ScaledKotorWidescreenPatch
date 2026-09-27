@@ -15,3 +15,4 @@ Expands supported resolutions and scales Menus/HUD. (widescreen support)
 <img width="1280" height="536" alt="screen05_small" src="https://github.com/user-attachments/assets/9958ff5a-d1b3-491c-933e-cf72112d9b63" />
 
 
+CC BY-NC 4.0
