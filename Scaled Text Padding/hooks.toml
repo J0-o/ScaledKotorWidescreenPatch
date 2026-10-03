@@ -1,0 +1,12 @@
+# CSWGuiListBox::Load has loaded its prototype item here. Apply resolution-scaled
+# PADDING to descriptions and selectable lists; main HUD queues are excluded.
+[[hooks]]
+address = 0x0041D710
+type = "detour"
+function = "applyScaledTextPadding"
+original_bytes = [0x8B, 0x4C, 0x24, 0x30, 0x5F, 0x5E, 0x5B]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"

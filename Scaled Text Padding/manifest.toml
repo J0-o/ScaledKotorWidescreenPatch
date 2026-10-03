@@ -1,0 +1,14 @@
+[patch]
+id = "scaled-text-padding-v1"
+name = "Scaled Text Padding"
+version = "1.4.1"
+author = "J"
+description = "Adds resolution-scaled padding to descriptions and selectable list items"
+
+requires = ["scaled-kotor"]
+
+conflicts = []
+
+[patch.supported_versions]
+kotor1_gog_103 = "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435"
+kotor1_cdcrack_103 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"
