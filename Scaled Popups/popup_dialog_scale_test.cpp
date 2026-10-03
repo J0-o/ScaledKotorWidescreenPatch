@@ -79,9 +79,11 @@ struct PanelSnapshot {
 
 struct MessageBoxSnapshot {
     char* owner;
+    Rect icon;
     Rect okButton;
     Rect cancelButton;
     Rect message;
+    bool iconValid;
     bool okButtonValid;
     bool cancelButtonValid;
     bool messageValid;
@@ -126,10 +128,10 @@ Rect scaledRect(const Rect& rect, const UniversalScaleState& scale) {
     };
 }
 
-bool isIdentityPopupScale(const UniversalScaleState& scale) {
-    return !scale.contentScalingEnabled ||
-        static_cast<long long>(scale.contentScaleNumerator) * 4 ==
-        static_cast<long long>(scale.contentScaleDenominator) * 9;
+int scaledMessageBoxIconValue(int value,
+                              const UniversalScaleState& scale) {
+    return scale.contentScalingEnabled ?
+        scaleTwoXValue((value * 3) / 2, scale) : value;
 }
 
 Rect placedRoot(const Rect& rect, const UniversalScaleState& scale,
@@ -306,7 +308,7 @@ void writeCodeValue(DWORD address, DWORD value) {
 
 void updateFitCeilings(const UniversalScaleState& scale) {
     writeCodeValue(MessageBoxIconInsetOperand,
-        static_cast<DWORD>(scaleTwoXValue(32, scale)));
+        static_cast<DWORD>(scaledMessageBoxIconValue(32, scale)));
     writeCodeValue(MessageBoxFitWidthOperand1,
         static_cast<DWORD>(scale.screenWidth));
     writeCodeValue(MessageBoxFitHeightOperand1,
@@ -325,6 +327,13 @@ void updateFitCeilings(const UniversalScaleState& scale) {
 void captureMessageBox(MessageBoxSnapshot& snapshot, char* owner) {
     snapshot = {};
     snapshot.owner = owner;
+
+    Rect* icon = reinterpret_cast<Rect*>(
+        owner + MessageBoxFrameIconOffset + sizeof(DWORD));
+    if (hasUsefulRect(*icon)) {
+        snapshot.icon = *icon;
+        snapshot.iconValid = true;
+    }
 
     const DWORD offsets[] = {
         MessageBoxOkButtonOffset,
@@ -356,6 +365,24 @@ void captureMessageBox(MessageBoxSnapshot& snapshot, char* owner) {
         snapshot.iconFillStyle);
 }
 
+void applyMessageBoxIconRect(const MessageBoxSnapshot& snapshot,
+                             const UniversalScaleState& scale) {
+    if (!snapshot.owner || !snapshot.iconValid) {
+        return;
+    }
+
+    Rect icon = snapshot.icon;
+    icon.top = scaledMessageBoxIconValue(snapshot.icon.top, scale);
+    icon.width = scaledMessageBoxIconValue(snapshot.icon.width, scale);
+    icon.height = scaledMessageBoxIconValue(snapshot.icon.height, scale);
+
+    Rect* root = reinterpret_cast<Rect*>(snapshot.owner + sizeof(DWORD));
+    if (hasUsefulRect(*root)) {
+        icon.left = (root->width - icon.width) / 2;
+    }
+    callControlSetRect(snapshot.owner + MessageBoxFrameIconOffset, icon);
+}
+
 void applyMessageBoxIconFillStyle(MessageBoxSnapshot& snapshot,
                                   const UniversalScaleState& scale) {
     if (!snapshot.owner || !snapshot.iconFillStyleValid) {
@@ -369,8 +396,8 @@ void applyMessageBoxIconFillStyle(MessageBoxSnapshot& snapshot,
         return;
     }
 
-    const DWORD style = isIdentityPopupScale(scale) ?
-        snapshot.iconFillStyle : MessageBoxIconStretchFillStyle;
+    const DWORD style = scale.contentScalingEnabled ?
+        MessageBoxIconStretchFillStyle : snapshot.iconFillStyle;
     *fillStyle = (current & ~MessageBoxIconFillStyleMask) |
         (style & MessageBoxIconFillStyleMask);
 }
@@ -583,6 +610,9 @@ void scaleCenteredPopup(void* ownerPtr, DWORD* returnAddressSlot) {
             messageBoxSnapshots[confirmIndex], *scale);
     }
     applyPanel(*snapshot, *scale, AuthoredPosition);
+    if (returnAddress == ConfirmCenterReturn) {
+        applyMessageBoxIconRect(messageBoxSnapshots[confirmIndex], *scale);
+    }
     if (returnAddress == SkillInfoCenterReturn) {
         applySkillInfoRows(*scale);
     }
@@ -650,6 +680,7 @@ void refreshTrackedPopups() {
 
         applyMessageBoxIconFillStyle(messageBoxSnapshots[i], *scale);
         applyPanel(snapshot, *scale, CenterBothAxes);
+        applyMessageBoxIconRect(messageBoxSnapshots[i], *scale);
         updateMessageBoxLayoutBases(
             messageBoxSnapshots[i], snapshot, *scale);
         snapshot.layoutGeneration = scale->layoutGeneration;
