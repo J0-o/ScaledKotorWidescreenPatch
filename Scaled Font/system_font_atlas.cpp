@@ -551,6 +551,7 @@ FontMetrics::Values deriveMetrics(const FontState& state, float absoluteScale) {
 }
 
 void installFont(void* fontInfo, Atlas& atlas) {
+    const float scale = FontRefresh::contentScale();
     if (!generate(atlas)) return;
     FontState state = readFontState(fontInfo, atlas);
     if (!state.glyphCount || state.glyphCount > 256) return;
@@ -562,7 +563,6 @@ void installFont(void* fontInfo, Atlas& atlas) {
         state.original.spacingR *= adjustment;
         state.original.spacingB *= adjustment;
     }
-    const float scale = FontRefresh::contentScale();
     const FontMetrics::Values metrics = deriveMetrics(state, scale);
     const size_t coordinates = static_cast<size_t>(state.glyphCount) * sizeof(Vec3);
     std::memcpy(state.upper, atlas.upper, coordinates);

@@ -3,6 +3,8 @@
 #include "../Common/ResolutionScale.h"
 #include "GameAPI/GameVersion.h"
 
+#include <cmath>
+
 
 namespace FontRefresh {
 namespace {
@@ -16,6 +18,7 @@ int g_textObjectOffset = -1;
 bool g_resolved = false;
 bool g_refreshing = false;
 float g_contentScale = 0.0f;
+constexpr float LogicalFontHeightPixels = 16.0f;
 
 bool resolveGameApi() {
     if (g_resolved) return true;
@@ -42,7 +45,8 @@ void updateAllFonts() {
 
 float readFontScale() {
     const UniversalScaleState& scale = *ResolutionScale::get();
-    return twoXScaleAdjustment(scale);
+    const float scaledHeight = LogicalFontHeightPixels * twoXScaleAdjustment(scale);
+    return std::round(scaledHeight) / LogicalFontHeightPixels;
 }
 } // namespace
 
