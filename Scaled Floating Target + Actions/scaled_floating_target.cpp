@@ -1,5 +1,8 @@
 #include "scaled_floating_target.h"
 #include "../Common/ResolutionScale.h"
+#include "GameAPI/GameVersion.h"
+
+#include <cmath>
 
 namespace FloatingTargetScale {
 
@@ -13,9 +16,6 @@ constexpr DWORD TargetMenuBase = 0x54;
 constexpr DWORD TargetMenuStride = 0x71C;
 constexpr DWORD PauseControlOffset = 0xC0AC;
 constexpr DWORD TargetClampHeightOffset = 0x1684;
-constexpr DWORD TargetNameControlOffset = 0x15CC;
-constexpr DWORD TextRenderableOffset = 0xE4;
-constexpr int TargetNameBaseLineHeight = 16;
 
 constexpr DWORD TargetMenuControlOffsets[] = {
     0x000, // BTN_TARGETn
@@ -49,6 +49,53 @@ constexpr Rect FloatingTargetActionRects[] = {
 };
 
 constexpr Rect PauseRect = { 6, 465, 35, 35 };
+
+using GetFontInfoFn = void* (__thiscall*)(void*);
+using GetSizeFn = void (__thiscall*)(void*, int*, int*);
+using SetSizeFn = void (__thiscall*)(void*, int, int);
+
+struct TargetNameApi {
+    int nameLabel = -1, labelText = -1, controlExtent = -1;
+    int textExtent = -1, guiString = -1, extentHeight = -1;
+    int fontTexture = -1, pointSize = -1, fontHeight = -1;
+    GetFontInfoFn getFontInfo = nullptr;
+    GetSizeFn getSize = nullptr;
+    SetSizeFn setSize = nullptr;
+    bool ready = false;
+} g_nameApi;
+
+bool resolveNameApi() {
+    if (g_nameApi.ready) return true;
+    if (!GameVersion::IsInitialized() && !GameVersion::Initialize()) return false;
+    try {
+        TargetNameApi api;
+        api.nameLabel = GameVersion::GetOffset("CSWGuiTargetActionMenu", "name_label");
+        api.labelText = GameVersion::GetOffset("CSWGuiLabel", "text");
+        api.controlExtent = GameVersion::GetOffset("CSWGuiControl", "extent");
+        api.textExtent = GameVersion::GetOffset("CSWGuiText", "extent");
+        api.guiString = GameVersion::GetOffset("CSWGuiText", "gui_string");
+        api.extentHeight = GameVersion::GetOffset("CSWGuiExtent", "height");
+        api.fontTexture = GameVersion::GetOffset("CAurGUIStringInternal", "font_texture");
+        api.pointSize = GameVersion::GetOffset("CAurGUIStringInternal", "point_size");
+        api.fontHeight = GameVersion::GetOffset("CAurFontInfo", "fontheight");
+        api.getFontInfo = reinterpret_cast<GetFontInfoFn>(
+            GameVersion::GetFunctionAddress("CAurTexture", "GetFontInfo"));
+        api.getSize = reinterpret_cast<GetSizeFn>(
+            GameVersion::GetFunctionAddress("CAurGUIStringInternal", "GetSizeBoundingRect_2"));
+        api.setSize = reinterpret_cast<SetSizeFn>(
+            GameVersion::GetFunctionAddress("CAurGUIStringInternal", "SetSizeBoundingRect_2"));
+        if (api.nameLabel < 0 || api.labelText < 0 || api.controlExtent < 0 ||
+            api.textExtent < 0 || api.guiString < 0 || api.extentHeight < 0 ||
+            api.fontTexture < 0 || api.pointSize < 0 || api.fontHeight < 0 ||
+            !api.getFontInfo || !api.getSize || !api.setSize)
+            return false;
+        api.ready = true;
+        g_nameApi = api;
+        return true;
+    } catch (const GameVersionException&) {
+        return false;
+    }
+}
 
 bool safeReadInt(const void* address, int& value) {
     __try {
@@ -159,35 +206,33 @@ void correctTargetVerticalBounds(void* hud) {
 }
 
 void roundTargetNameHeight(void* owner) {
-    const UniversalScaleState* scale = ResolutionScale::get();
-    if (!owner || !scale || !scale->contentScalingEnabled ||
-        scale->contentScaleNumerator <= 0 ||
-        scale->contentScaleDenominator <= 0) {
-        return;
-    }
+    if (!owner || !resolveNameApi()) return;
 
-    const long long numerator = static_cast<long long>(TargetNameBaseLineHeight) *
-        scale->contentScaleNumerator * 4;
-    const long long denominator =
-        static_cast<long long>(scale->contentScaleDenominator) * 9;
-    const int roundedHeight = static_cast<int>(numerator / denominator);
+    char* label = static_cast<char*>(owner) + g_nameApi.nameLabel;
+    char* text = label + g_nameApi.labelText;
+    char* renderable = *reinterpret_cast<char**>(text + g_nameApi.guiString);
+    if (!renderable) return;
 
-    char* label = static_cast<char*>(owner) + TargetNameControlOffset;
-    Rect rect = {};
-    if (!safeReadRect(label + 0x04, rect) || rect.height >= roundedHeight) {
-        return;
-    }
+    void* texture = *reinterpret_cast<void**>(renderable + g_nameApi.fontTexture);
+    if (!texture) return;
+    char* info = static_cast<char*>(g_nameApi.getFontInfo(texture));
+    if (!info) return;
 
-    __try {
-        char* renderable = *reinterpret_cast<char**>(label + TextRenderableOffset);
-        rect.height = roundedHeight;
-        *reinterpret_cast<Rect*>(label + 0x04) = rect;
-        if (renderable) {
-            *reinterpret_cast<int*>(renderable + 0x10) = roundedHeight;
-        }
-    }
-    __except (EXCEPTION_EXECUTE_HANDLER) {
-    }
+    const float height = *reinterpret_cast<float*>(info + g_nameApi.fontHeight);
+    const float point = *reinterpret_cast<float*>(renderable + g_nameApi.pointSize);
+    const double pixels = static_cast<double>(height) * 100.0 * point;
+    if (!std::isfinite(pixels) || pixels <= 0.0) return;
+    const int required = static_cast<int>(std::ceil(pixels));
+
+    int& labelHeight = *reinterpret_cast<int*>(
+        label + g_nameApi.controlExtent + g_nameApi.extentHeight);
+    int& textHeight = *reinterpret_cast<int*>(
+        text + g_nameApi.textExtent + g_nameApi.extentHeight);
+    int width = 0, currentHeight = 0;
+    g_nameApi.getSize(renderable, &width, &currentHeight);
+    if (labelHeight < required) labelHeight = required;
+    if (textHeight < required) textHeight = required;
+    if (currentHeight < required) g_nameApi.setSize(renderable, width, required);
 }
 
 }
