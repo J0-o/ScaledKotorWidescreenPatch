@@ -1,9 +1,9 @@
 [patch]
 id = "font-scale-2x-v1"
 name = "Scaled Font"
-version = "1.6.5"
+version = "2.5.7"
 author = "J"
-description = "Scales loaded game fonts relative to a 1x baseline at 1080p."
+description = "Loads Override\\ui.ttf and Override\\body.ttf, crops TTF line cells two pixels vertically and the UI font one pixel per horizontal side, renders UI/dialogue and descriptions at 16px, corrects engine wrap-width rounding with a fixed 0.5px safety margin, then applies resolution scaling and Scaled Kotor's global ScaleFactor."
 
 requires = ["scaled-kotor"]
 
@@ -11,4 +11,3 @@ conflicts = []
 
 [patch.supported_versions]
 kotor1_gog_103 = "9C10E0450A6EECA417E036E3CDE7474FED1F0A92AAB018446D156944DEA91435"
-kotor1_cdcrack_103 = "761F9466F456A83909036BAEBB5C43167D722387BE66E54617BA20A8C49E9886"

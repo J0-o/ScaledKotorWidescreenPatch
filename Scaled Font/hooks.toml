@@ -1,27 +1,373 @@
-# Scale CAurFontInfo once, after the texture TXI metadata parser has completed.
-# EDI is the live texture object and +0x38 is its CAurFontInfo pointer.
-# This replaces the per-frame TextOutA/GUIString hooks and their pointer cache.
+# Observe complete TXI metadata and install a supported logical font.
+# EDI is the texture; font_info and the resource name use GameAPI offsets.
 [[hooks]]
 address = 0x00422CC1
 type = "detour"
-function = "scaleLoadedTextureMetadata"
+function = "onFontTextureMetadataLoaded"
 original_bytes = [0x8B, 0x8C, 0x24, 0x14, 0x20, 0x00, 0x00]
-exclude_from_restore = []
 
 [[hooks.parameters]]
 source = "edi"
 type = "pointer"
 
-# CSWGuiManager::UpdateAllFonts reaches every live GUI string through this
-# shared ReSetFont implementation. During a resolution refresh, scale each
-# distinct font referenced by its live text-render object.
+# CAurTextureBasic destructor: remove the font-info association before KOTOR
+# destroys the texture object. Offsets remain version-dependent GameAPI data.
 [[hooks]]
-address = 0x00415D60
+address = 0x00422F40
 type = "detour"
-function = "scaleResetGuiStringFont"
-original_bytes = [0x83, 0xEC, 0x38, 0x56, 0x8B, 0xF1]
-exclude_from_restore = []
+function = "forgetMsdfTextureFont"
+original_bytes = [0x6A, 0xFF, 0x68, 0x78, 0x57, 0x71, 0x00, 0x64, 0xA1, 0x00, 0x00, 0x00, 0x00]
 
 [[hooks.parameters]]
 source = "ecx"
 type = "pointer"
+
+# CSWGuiTextParams::SetFontRename (called by UpdateAllFonts). During our refresh,
+# rewrap even when the resource name is unchanged. The text-object offset and
+# CSWGuiText::wrapText are resolved through GameAPI.
+[[hooks]]
+address = 0x00415D60
+type = "detour"
+function = "rewrapResetGuiFont"
+original_bytes = [0x83, 0xEC, 0x38, 0x56, 0x8B, 0xF1]
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+# CAurFont::TextOutA common epilogue. This closes the first batch when its
+# native early branch bypasses the normal end hook; otherwise it is a no-op.
+[[hooks]]
+address = 0x004A21A4
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0x8B, 0x8C, 0x24, 0xF8, 0x00, 0x00, 0x00]
+
+# CAurGUIStringInternal::Draw: KOTOR has bound the font texture but has not yet
+# entered glBegin(GL_QUADS). Activate the selected atlas shader for this batch.
+[[hooks]]
+address = 0x0045AA1D
+type = "detour"
+function = "beginMsdfGuiText"
+original_bytes = [0xA1, 0x4C, 0xF3, 0x73, 0x00]
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+# Same function, immediately after the matching glEnd call.
+[[hooks]]
+address = 0x0045B1DB
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0x8B, 0x15, 0x5C, 0xD4, 0x78, 0x00]
+
+# KPM copies stolen instructions verbatim and does not relocate relative calls
+# or branches, so these detours use the absolute MOVs around each native batch.
+# Primary CAurFont pointers live in the indicated original game-stack slots;
+# KPM passes esp+N as the address of that slot.
+
+[[hooks]]
+address = 0x004A1920
+type = "detour"
+function = "beginMsdfPrimaryTextBatch"
+original_bytes = [0x8B, 0x15, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "esp+24"
+type = "pointer"
+
+[[hooks]]
+address = 0x004A1937
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0xA1, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks]]
+address = 0x004A1ADE
+type = "detour"
+function = "beginMsdfInlineTextBatch"
+original_bytes = [0x8B, 0x15, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+[[hooks]]
+address = 0x004A1AED
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0xA1, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks]]
+address = 0x004A1E1F
+type = "detour"
+function = "beginMsdfInlineTextBatch"
+original_bytes = [0x8B, 0x0D, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+# Both the third and fourth inline batch paths converge on this absolute MOV.
+[[hooks]]
+address = 0x004A1E3C
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0x8B, 0x15, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks]]
+address = 0x004A1E7D
+type = "detour"
+function = "beginMsdfInlineTextBatch"
+original_bytes = [0x8B, 0x15, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+[[hooks]]
+address = 0x004A2184
+type = "detour"
+function = "beginMsdfPrimaryTextBatch"
+original_bytes = [0x8B, 0x0D, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "esp+24"
+type = "pointer"
+
+[[hooks]]
+address = 0x004A2193
+type = "detour"
+function = "endMsdfTextBatch"
+original_bytes = [0x8B, 0x84, 0x24, 0x0C, 0x01, 0x00, 0x00]
+
+# Logical layout/render-plane separation. CPU-only glyph hooks run inside the
+# native glBegin/glEnd range and therefore perform no OpenGL calls.
+[[hooks]]
+address = 0x0045AE51
+type = "detour"
+function = "beginMsdfGuiGlyph"
+original_bytes = [0x0F, 0xB6, 0x07, 0x8B, 0x56, 0x18]
+
+[[hooks.parameters]]
+source = "esp+0"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+# Restore logical UVs and the glyph plane before native character advance.
+[[hooks]]
+address = 0x0045AF6B
+type = "detour"
+function = "endMsdfGuiGlyph"
+original_bytes = [0x8B, 0x4C, 0x24, 0x14, 0xD9, 0x41, 0x40]
+
+# The synthetic wrap hyphen has its own four-vertex emission path.
+[[hooks]]
+address = 0x0045B054
+type = "detour"
+function = "beginMsdfGuiHyphen"
+original_bytes = [0x8B, 0x46, 0x18, 0xD9, 0x80, 0x20, 0x02, 0x00, 0x00]
+
+[[hooks.parameters]]
+source = "esp+0"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
+[[hooks]]
+address = 0x0045B162
+type = "detour"
+function = "endMsdfGuiGlyph"
+original_bytes = [0x8B, 0x4C, 0x24, 0x14, 0xD9, 0x41, 0x40]
+
+# Expand the primary-font vertex batch before its native unmap/commit.
+[[hooks]]
+address = 0x004A1914
+type = "detour"
+function = "prepareMsdfPrimaryGeometry"
+original_bytes = [0x8B, 0x0D, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+[[hooks.parameters]]
+source = "esp+20"
+type = "pointer"
+
+# Both inline-font flush branches share this pre-unmap instruction. KPM
+# preserves the native CMP flags around the callback.
+[[hooks]]
+address = 0x004A1ACC
+type = "detour"
+function = "prepareMsdfInlineGeometry"
+original_bytes = [0x8B, 0x0D, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+# Completed inline-font vertex batch, still writable before unmap.
+[[hooks]]
+address = 0x004A1E14
+type = "detour"
+function = "prepareMsdfInlineGeometry"
+original_bytes = [0xA1, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+[[hooks.parameters]]
+source = "edi"
+type = "pointer"
+
+# Final primary-font vertex batch, still writable before unmap.
+[[hooks]]
+address = 0x004A2179
+type = "detour"
+function = "prepareMsdfPrimaryGeometry"
+original_bytes = [0xA1, 0x24, 0x05, 0x83, 0x00]
+
+[[hooks.parameters]]
+source = "ebp"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "esi"
+type = "int"
+
+[[hooks.parameters]]
+source = "esp+20"
+type = "pointer"
+
+
+# 2.2.8: correct native line production and consumption.
+# The old scan-to-NUL remainder workaround is removed. Native source pointers,
+# line counts, widths and allocation ownership remain under KOTOR's control.
+# The operative machine-code replacements are declared below.
+
+# Split the fitting prefix; a too-wide glyph occupies one line, never the entire remainder.
+[[hooks]]
+address = 0x0045A5E0
+type = "replace"
+original_bytes = [0x8B, 0x46, 0x14, 0x4B, 0x3B, 0xD8, 0x89, 0x4C, 0x24, 0x10, 0x0F, 0x84, 0x44, 0x02, 0x00, 0x00]
+replacement_bytes = [0x3B, 0x5C, 0x24, 0x18, 0x76, 0x17, 0x89, 0x4C, 0x24, 0x14, 0x89, 0x4C, 0x24, 0x10, 0x4B, 0x3B, 0x5C, 0x24, 0x18, 0x77, 0x14, 0x43, 0xB8, 0x85, 0xA7, 0x45, 0x00, 0xFF, 0xE0, 0x8B, 0x5C, 0x24, 0x18, 0x43, 0xB8, 0x85, 0xA7, 0x45, 0x00, 0xFF, 0xE0]
+
+# Reserve a synthetic hyphen only when its measured line fits the box.
+[[hooks]]
+address = 0x0045A641
+type = "replace"
+original_bytes = [0x8B, 0x54, 0x24, 0x10, 0x8D, 0x6E, 0x34, 0x2B, 0xC1]
+replacement_bytes = [0x8B, 0x54, 0x24, 0x10, 0x29, 0xC8, 0x01, 0xD0, 0x3B, 0x44, 0x24, 0x24, 0x7F, 0x07, 0x29, 0xD0, 0x8D, 0x6E, 0x34, 0xEB, 0x0C, 0x43, 0x89, 0x54, 0x24, 0x14, 0xB8, 0x85, 0xA7, 0x45, 0x00, 0xFF, 0xE0]
+
+# The first glyph fitting exactly is not an overflow (JGE -> JG).
+[[hooks]]
+address = 0x0045A4F8
+type = "simple"
+original_bytes = [0x0F, 0x8D, 0x95, 0x00, 0x00, 0x00]
+replacement_bytes = [0x0F, 0x8F, 0x95, 0x00, 0x00, 0x00]
+
+# Continue scanning an exactly fitting line (JL -> JLE).
+[[hooks]]
+address = 0x0045A58D
+type = "simple"
+original_bytes = [0x0F, 0x8C, 0x6D, 0xFF, 0xFF, 0xFF]
+replacement_bytes = [0x0F, 0x8E, 0x6D, 0xFF, 0xFF, 0xFF]
+
+# Remove the unrelated W-width precheck for a one-character string.
+[[hooks]]
+address = 0x0045A3B7
+type = "simple"
+original_bytes = [0x0F, 0x8C, 0x7F, 0x04, 0x00, 0x00]
+replacement_bytes = [0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
+
+# Remove the unrelated two-W-width precheck for one/two-character strings.
+[[hooks]]
+address = 0x0045A3DC
+type = "simple"
+original_bytes = [0x0F, 0x8C, 0x5A, 0x04, 0x00, 0x00]
+replacement_bytes = [0x90, 0x90, 0x90, 0x90, 0x90, 0x90]
+
+# Round each measured glyph advance with the engine's existing 0.5f constant
+# instead of its biased 0.25f constant. Draw keeps the exact floating width.
+[[hooks]]
+address = 0x0045A567
+type = "simple"
+original_bytes = [0xD8, 0x05, 0xF0, 0xED, 0x73, 0x00]
+replacement_bytes = [0xD8, 0x05, 0xAC, 0xE9, 0x73, 0x00]
+
+# Clipped lines consume abs(signed_length); negative means a synthetic hyphen, not reverse traversal.
+[[hooks]]
+address = 0x0045AB3E
+type = "replace"
+original_bytes = [0x03, 0x3C, 0x90, 0x8A, 0x07]
+replacement_bytes = [0x8B, 0x04, 0x90, 0x85, 0xC0, 0x79, 0x02, 0xF7, 0xD8, 0x01, 0xC7, 0x8A, 0x07]
+
+# Measure the first character after explicit blank lines; do not reuse the newline width.
+[[hooks]]
+address = 0x0045A4D5
+type = "replace"
+original_bytes = [0x80, 0x3B, 0x0A, 0x0F, 0x84, 0x25, 0xFF, 0xFF, 0xFF]
+replacement_bytes = [0x80, 0x3B, 0x0A, 0x75, 0x07, 0xB8, 0x03, 0xA4, 0x45, 0x00, 0xFF, 0xE0, 0xB8, 0xF3, 0xA7, 0x45, 0x00, 0xFF, 0xE0]
+
+# Classify a preceding character only when one exists before this hyphen.
+[[hooks]]
+address = 0x0045A505
+type = "replace"
+original_bytes = [0x0F, 0xB6, 0x4B, 0xFF, 0x51]
+replacement_bytes = [0x3B, 0x5E, 0x14, 0x74, 0x07, 0x0F, 0xB6, 0x4B, 0xFF, 0x51, 0xEB, 0x07, 0xB8, 0x33, 0xA5, 0x45, 0x00, 0xFF, 0xE0]
+
+# Line production and Draw must consume the same optional space/newline delimiter.
+[[hooks]]
+address = 0x0045A7ED
+type = "replace"
+original_bytes = [0x80, 0x3B, 0x0A, 0x75, 0x01]
+replacement_bytes = [0x80, 0x3B, 0x0A, 0x74, 0x0C, 0x80, 0x3B, 0x20, 0x74, 0x07, 0xB8, 0xF3, 0xA7, 0x45, 0x00, 0xFF, 0xE0]
+
+# Subtract the same rounded overflow-glyph advance that the scan added.
+[[hooks]]
+address = 0x0045A5CF
+type = "replace"
+original_bytes = [0xD8, 0x0D, 0x38, 0x18, 0x74, 0x00]
+replacement_bytes = [0xD8, 0x0D, 0x38, 0x18, 0x74, 0x00, 0xD8, 0x05, 0xAC, 0xE9, 0x73, 0x00]
+
+# Measure the removed pre-hyphen glyph using the same rounding as the scan.
+[[hooks]]
+address = 0x0045A60B
+type = "replace"
+original_bytes = [0xD8, 0x0D, 0x38, 0x18, 0x74, 0x00]
+replacement_bytes = [0xD8, 0x0D, 0x38, 0x18, 0x74, 0x00, 0xD8, 0x05, 0xAC, 0xE9, 0x73, 0x00]
+
+# Remove exactly the measured delimiter width, using the scanner's rounding.
+[[hooks]]
+address = 0x0045A710
+type = "replace"
+original_bytes = [0xD8, 0x0D, 0x6C, 0x18, 0x74, 0x00]
+replacement_bytes = [0xD8, 0x0D, 0x6C, 0x18, 0x74, 0x00, 0x3B, 0x6C, 0x24, 0x18, 0x75, 0x0A, 0xDD, 0xD8, 0xDB, 0x44, 0x24, 0x10, 0xD9, 0xE0, 0xEB, 0x06, 0xD8, 0x25, 0xAC, 0xE9, 0x73, 0x00]

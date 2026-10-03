@@ -1,5 +1,15 @@
 LIBRARY FontScale2x
 EXPORTS
-    scaleLoadedTextureMetadata
-    scaleResetGuiStringFont
+    onFontTextureMetadataLoaded
+    rewrapResetGuiFont
     refreshResolutionDependentUi
+    forgetMsdfTextureFont
+    beginMsdfGuiText
+    beginMsdfPrimaryTextBatch
+    beginMsdfInlineTextBatch
+    endMsdfTextBatch
+    beginMsdfGuiGlyph
+    beginMsdfGuiHyphen
+    endMsdfGuiGlyph
+    prepareMsdfPrimaryGeometry
+    prepareMsdfInlineGeometry
