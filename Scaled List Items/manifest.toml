@@ -1,9 +1,9 @@
 [patch]
 id = "list-item-height-2x-v1"
 name = "Scaled List Items"
-version = "2.5.3"
+version = "2.5.4"
 author = "J"
-description = "Scales item list-box rows relative to a 1x baseline at 1080p."
+description = "Scales item list-box rows relative to a 1x baseline at 1080p and stretches item icon borders without tiling."
 
 requires = ["scaled-kotor"]
 

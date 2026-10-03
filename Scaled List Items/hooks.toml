@@ -10,10 +10,6 @@ skip_original_bytes = true
 exclude_from_restore = []
 
 [[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
 source = "esp+28"
 type = "pointer"
 
@@ -27,12 +23,34 @@ skip_original_bytes = true
 exclude_from_restore = []
 
 [[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
 source = "esp+24"
 type = "pointer"
+
+# The two lbl_hex_3 icon-border states are created in tile mode by default.
+# Use stretch mode so a scaled icon keeps one border instead of repeating it.
+[[hooks]]
+address = 0x006B4E8B
+type = "simple"
+original_bytes = [0x6A, 0x00]
+replacement_bytes = [0x6A, 0x02]
+
+[[hooks]]
+address = 0x006B4F1F
+type = "simple"
+original_bytes = [0x6A, 0x00]
+replacement_bytes = [0x6A, 0x02]
+
+[[hooks]]
+address = 0x006B54C4
+type = "simple"
+original_bytes = [0x6A, 0x00]
+replacement_bytes = [0x6A, 0x02]
+
+[[hooks]]
+address = 0x006B5558
+type = "simple"
+original_bytes = [0x6A, 0x00]
+replacement_bytes = [0x6A, 0x02]
 
 # Skill-entry constructor row height and shared visual height.
 [[hooks]]
