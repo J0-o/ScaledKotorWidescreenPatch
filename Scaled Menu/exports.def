@@ -1,5 +1,6 @@
 LIBRARY MenuScale
 EXPORTS
     scaleMenuPanelTree
+    fixAlignmentSliderThumb
     scalePazaakGameCards
     refreshResolutionDependentUi

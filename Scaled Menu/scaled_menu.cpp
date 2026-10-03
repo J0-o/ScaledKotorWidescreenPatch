@@ -14,6 +14,11 @@ constexpr DWORD GuiManagerPanelCountOffset = 0x8C;
 constexpr DWORD MainMenuVtable = 0x00752F70;
 constexpr DWORD FadePanelVtable = 0x0074FC60;
 constexpr DWORD TooltipPanelVtable = 0x00750030;
+constexpr DWORD AlignmentSliderVtable = 0x00756060;
+constexpr DWORD AlignmentSliderThumbOffset = 0x164;
+constexpr DWORD AlignmentSliderMaximumOffset = 0x70;
+constexpr DWORD AlignmentSliderValueOffset = 0x74;
+constexpr DWORD AlignmentThumbFillStyleOffset = 0x8C;
 constexpr DWORD PazaakPlayerHandBase = 0x2DE0;
 constexpr DWORD PazaakOpponentHandBase = 0x564C;
 constexpr DWORD PazaakCardStride = 0x31C;
@@ -202,6 +207,57 @@ void scaleControl(char* control, const ScaleState& scale) {
     }
 }
 
+void fixCharacterAlignmentThumb(char* slider) {
+    const Rect& track = *reinterpret_cast<Rect*>(slider + 0x04);
+    if (!hasUsefulRect(track) || track.height <= track.width) {
+        return;
+    }
+
+    DWORD maximum = 0;
+    DWORD value = 0;
+    if (!safeReadDword(slider + AlignmentSliderMaximumOffset, maximum) ||
+        !safeReadDword(slider + AlignmentSliderValueOffset, value)) {
+        return;
+    }
+
+    Rect thumb = {
+        track.left,
+        track.top,
+        track.width,
+        divideRoundedNearest(track.width, 2),
+    };
+    if (thumb.height > track.height) {
+        thumb.height = track.height;
+    }
+    if (maximum > 0) {
+        thumb.top += divideRoundedNearest(
+            static_cast<long long>(track.height - thumb.height) * value,
+            maximum);
+    }
+
+    char* thumbControl = slider + AlignmentSliderThumbOffset;
+    callControlSetRect(thumbControl, thumb);
+    DWORD fillStyle = 0;
+    if (safeReadDword(thumbControl + AlignmentThumbFillStyleOffset, fillStyle)) {
+        fillStyle = (fillStyle & ~3u) | 2u;
+        writeMemory(thumbControl + AlignmentThumbFillStyleOffset,
+            &fillStyle, sizeof(fillStyle));
+    }
+}
+
+bool isCharacterAlignmentSlider(char* slider) {
+    DWORD vtable = 0;
+    DWORD name0 = 0;
+    DWORD name1 = 0;
+    DWORD name2 = 0;
+    char* name = slider + AlignmentSliderThumbOffset + 0x28;
+    return safeReadDword(slider, vtable) &&
+        vtable == AlignmentSliderVtable &&
+        safeReadDword(name, name0) && name0 == 0x5F6C626C &&
+        safeReadDword(name + 4, name1) && name1 == 0x67696C61 &&
+        safeReadDword(name + 8, name2) && name2 == 0x7272616E;
+}
+
 void setPazaakCardRect(char* pazaakGame, const PazaakCardRect& card, const ScaleState& scale) {
     char* cardBase = pazaakGame + card.offset;
     const BYTE fillControlDrawMode = 2;
@@ -327,6 +383,13 @@ void scaleMenuPanelTree(void* panel) {
         return;
     }
     scalePanelTree(static_cast<char*>(panel), vtable, original, *universalScale);
+}
+
+void fixAlignmentSliderThumb(void* sliderPtr) {
+    char* slider = static_cast<char*>(sliderPtr);
+    if (slider && isCharacterAlignmentSlider(slider)) {
+        fixCharacterAlignmentThumb(slider);
+    }
 }
 
 void scalePazaakGameCards(void* pazaakGame) {

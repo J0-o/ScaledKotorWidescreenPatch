@@ -12,6 +12,7 @@ struct Rect {
 };
 
 void scaleMenuPanelTree(void* panel);
+void fixAlignmentSliderThumb(void* slider);
 void scalePazaakGameCards(void* pazaakGame);
 void refreshMenuPanelTrees();
 

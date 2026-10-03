@@ -9,6 +9,14 @@ extern "C" void __cdecl scaleMenuPanelTree(void* panel) {
     }
 }
 
+extern "C" void __cdecl fixAlignmentSliderThumb(void* slider) {
+    __try {
+        MenuScale::fixAlignmentSliderThumb(slider);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
 extern "C" void __cdecl scalePazaakGameCards(void* pazaakGame) {
     __try {
         MenuScale::scalePazaakGameCards(pazaakGame);

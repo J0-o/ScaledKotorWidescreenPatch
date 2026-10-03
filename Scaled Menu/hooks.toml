@@ -15,6 +15,19 @@ exclude_from_restore = []
 source = "ecx"
 type = "pointer"
 
+# CSWGuiSlider::SetExtent rebuilds its thumb after every value/layout update.
+# Correct only the lbl_alignarr thumb after the native calculation completes.
+[[hooks]]
+address = 0x0041904D
+type = "detour"
+function = "fixAlignmentSliderThumb"
+original_bytes = [0x5F, 0x5E, 0x5D, 0x5B, 0x83, 0xC4, 0x20]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
 # Pazaak hand cards are CSWGuiPazaakCard composites that the game refreshes
 # after the generic panel layout pass. Reapply exact scaled hand-card extents
 # before the Pazaak game panel draws so active/late-updated cards do not fall
