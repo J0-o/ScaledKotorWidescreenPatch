@@ -18,6 +18,8 @@ constexpr uintptr_t PreviousAntiAliasAddress = 0x0078D440;
 constexpr uintptr_t RequestedAntiAliasAddress = 0x007A6888;
 constexpr uintptr_t VideoModeChangeRequestAddress = 0x007A3A2C;
 constexpr size_t ClientAppOffset = 0x04;
+constexpr size_t ClientAppInternalOffset = 0x04;
+constexpr size_t GuiInGameOffset = 0x40;
 constexpr size_t ResolutionButtonOffset = 0x08BC;
 constexpr size_t AdvancedOptionsReinitOffset = 0x2330;
 constexpr int DefaultScreenWidth = 800;
@@ -51,16 +53,24 @@ double additionalScaleFactor = DefaultAdditionalScaleFactor;
 constexpr int MaxResolutionRefreshCallbacks = 32;
 ResolutionRefreshCallback refreshCallbacks[MaxResolutionRefreshCallbacks] = {};
 
-constexpr char FontRefreshModuleName[] = "font-scale-2x-v1.dll";
-constexpr const char* RefreshModuleNames[] = {
-    "menu-scale-v1.dll",
-    "container-popup-scale-test-v1.dll",
-    "scaled-popups.dll",
-    "class-selection-layout-constants-test-v1.dll",
-    "small-root-panel-scale-test-v1.dll",
-    "scaled-scrollbars-v1.dll",
-    "area-map-hud-minimap-2x-scale-v1.dll",
-    "list-item-height-2x-v1.dll",
+struct RefreshTarget {
+    const char* combinedExport;
+    const char* standaloneModule;
+};
+
+constexpr RefreshTarget FontRefreshTarget = {
+    "refreshResolutionDependentUi_scaled_font",
+    "font-scale-2x-v1.dll",
+};
+constexpr RefreshTarget RefreshTargets[] = {
+    { "refreshResolutionDependentUi_scaled_menu", "menu-scale-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_container_popup", "container-popup-scale-test-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_popups", "scaled-popups.dll" },
+    { "refreshResolutionDependentUi_scaled_class_menu", "class-selection-layout-constants-test-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_panels", "small-root-panel-scale-test-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_scrollbars", "scaled-scrollbars-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_map_minimap", "area-map-hud-minimap-2x-scale-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_list_items", "list-item-height-2x-v1.dll" },
 };
 constexpr char ResolutionRefreshExport[] = "refreshResolutionDependentUi";
 
@@ -116,18 +126,28 @@ void refreshAdditionalNativeGuiRoots(void* guiInGame) {
     }
 }
 
-ResolutionRefreshCallback findKnownRefreshCallback(const char* moduleName) {
-    HMODULE module = GetModuleHandleA(moduleName);
-    if (!module) {
-        return nullptr;
+ResolutionRefreshCallback findKnownRefreshCallback(const RefreshTarget& target) {
+    HMODULE module = GetModuleHandleA("scaled-kotor.dll");
+    if (module) {
+        ResolutionRefreshCallback callback =
+            reinterpret_cast<ResolutionRefreshCallback>(
+                GetProcAddress(module, target.combinedExport));
+        if (callback) {
+            return callback;
+        }
     }
+
+    module = GetModuleHandleA(target.standaloneModule);
     return reinterpret_cast<ResolutionRefreshCallback>(
-        GetProcAddress(module, ResolutionRefreshExport));
+        module ? GetProcAddress(module, ResolutionRefreshExport) : nullptr);
 }
 
 bool isKnownRefreshCallback(ResolutionRefreshCallback callback) {
-    for (const char* moduleName : RefreshModuleNames) {
-        if (findKnownRefreshCallback(moduleName) == callback) {
+    if (findKnownRefreshCallback(FontRefreshTarget) == callback) {
+        return true;
+    }
+    for (const RefreshTarget& target : RefreshTargets) {
+        if (findKnownRefreshCallback(target) == callback) {
             return true;
         }
     }
@@ -148,14 +168,39 @@ void invokeRefreshCallback(ResolutionRefreshCallback callback) {
 void notifyResolutionRefreshCallbacks() {
     // Resolve family members at event time so DLL load order cannot suppress
     // the notification. Generic menu layout runs before specialized children.
-    for (const char* moduleName : RefreshModuleNames) {
-        invokeRefreshCallback(findKnownRefreshCallback(moduleName));
+    for (const RefreshTarget& target : RefreshTargets) {
+        invokeRefreshCallback(findKnownRefreshCallback(target));
     }
 
     for (ResolutionRefreshCallback callback : refreshCallbacks) {
         if (callback && !isKnownRefreshCallback(callback)) {
             invokeRefreshCallback(callback);
         }
+    }
+}
+
+bool isCurrentGuiInGame(void* guiInGame) {
+    if (!guiInGame) {
+        return false;
+    }
+
+    __try {
+        void* appManager = *reinterpret_cast<void**>(AppManagerPointerAddress);
+        if (!appManager) {
+            return false;
+        }
+        void* clientApp = *reinterpret_cast<void**>(
+            static_cast<char*>(appManager) + ClientAppOffset);
+        if (!clientApp) {
+            return false;
+        }
+        void* internal = *reinterpret_cast<void**>(
+            static_cast<char*>(clientApp) + ClientAppInternalOffset);
+        return internal && *reinterpret_cast<void**>(
+            static_cast<char*>(internal) + GuiInGameOffset) == guiInGame;
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+        return false;
     }
 }
 
@@ -398,7 +443,10 @@ extern "C" void __cdecl onResolutionModeCommitted(void* guiInGame) {
     // dimensions here guarantees that even a change with no scaled constructor
     // callbacks publishes a new layout generation before the setter returns.
     updateScaleState();
-    invokeRefreshCallback(findKnownRefreshCallback(FontRefreshModuleName));
+    if (!isCurrentGuiInGame(guiInGame)) {
+        return;
+    }
+    invokeRefreshCallback(findKnownRefreshCallback(FontRefreshTarget));
     refreshAdditionalNativeGuiRoots(guiInGame);
     notifyResolutionRefreshCallbacks();
 
