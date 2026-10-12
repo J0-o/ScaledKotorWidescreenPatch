@@ -367,15 +367,7 @@ void scaleCenteredHudControls(char* base, const UniversalScaleState& scale) {
     }
 
     for (DWORD offset : CenteredHudControlOffsets) {
-        char* marker = base + offset;
-        for (DWORD controlOffset : QueuedActionMarkerControlOffsets) {
-            scaleQueuedActionMarkerControl(marker + controlOffset, scale, true);
-        }
-
-        int drawable = 0;
-        if (safeReadInt(marker + 0xE4, drawable) && drawable != 0) {
-            scaleQueuedActionMarkerControl(reinterpret_cast<char*>(drawable), scale, false);
-        }
+        scaleQueuedActionMarkerControl(base + offset, scale, true);
     }
 }
 
