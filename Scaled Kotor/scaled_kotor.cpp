@@ -179,29 +179,29 @@ void notifyResolutionRefreshCallbacks() {
     }
 }
 
-bool isCurrentGuiInGame(void* guiInGame) {
-    if (!guiInGame) {
-        return false;
-    }
-
+void* currentGuiInGame() {
     __try {
         void* appManager = *reinterpret_cast<void**>(AppManagerPointerAddress);
         if (!appManager) {
-            return false;
+            return nullptr;
         }
         void* clientApp = *reinterpret_cast<void**>(
             static_cast<char*>(appManager) + ClientAppOffset);
         if (!clientApp) {
-            return false;
+            return nullptr;
         }
         void* internal = *reinterpret_cast<void**>(
             static_cast<char*>(clientApp) + ClientAppInternalOffset);
-        return internal && *reinterpret_cast<void**>(
-            static_cast<char*>(internal) + GuiInGameOffset) == guiInGame;
+        return internal ? *reinterpret_cast<void**>(
+            static_cast<char*>(internal) + GuiInGameOffset) : nullptr;
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
-        return false;
+        return nullptr;
     }
+}
+
+bool isCurrentGuiInGame(void* guiInGame) {
+    return guiInGame && currentGuiInGame() == guiInGame;
 }
 
 bool pathBesideExe(const char* name, char* output, DWORD size) {
@@ -243,15 +243,15 @@ void writeIniInt(const char* path, char* key, int value) {
     WritePrivateProfileStringA(IniSection, key, buffer, path);
 }
 
-void loadSettings() {
-    if (settingsLoaded) {
-        return;
+bool loadSettings(bool forceReload = false) {
+    if (settingsLoaded && !forceReload) {
+        return false;
     }
     settingsLoaded = true;
 
     char path[MAX_PATH];
     if (!pathBesideExe(IniFile, path, MAX_PATH)) {
-        return;
+        return false;
     }
 
     int scaleValue = DefaultScaleFactor;
@@ -259,8 +259,10 @@ void loadSettings() {
         writeIniInt(path, ScaleFactorKey, DefaultScaleFactor);
     }
 
+    const double previousScaleFactor = additionalScaleFactor;
     additionalScaleFactor =
         scaleValue >= 10 ? static_cast<double>(scaleValue) / 10.0 : scaleValue;
+    return additionalScaleFactor != previousScaleFactor;
 }
 
 int readPositiveInt(uintptr_t address, int fallback) {
@@ -273,12 +275,13 @@ int readPositiveInt(uintptr_t address, int fallback) {
     }
 }
 
-bool updateScaleState() {
-    loadSettings();
+bool updateScaleState(bool reloadSettings = false) {
+    const bool settingsChanged = loadSettings(reloadSettings);
 
     const int screenWidth = readPositiveInt(ScreenWidthAddress, DefaultScreenWidth);
     const int screenHeight = readPositiveInt(ScreenHeightAddress, DefaultScreenHeight);
     if (scaleStateInitialized &&
+        !settingsChanged &&
         screenWidth == scaleState.screenWidth &&
         screenHeight == scaleState.screenHeight) {
         return false;
@@ -406,6 +409,17 @@ extern "C" const UniversalScaleState* __cdecl getUniversalScaleState() {
     return &scaleState;
 }
 
+extern "C" void __cdecl reloadScaleFactor(const char*, const char*) {
+    updateScaleState(true);
+    void* guiInGame = currentGuiInGame();
+    if (!guiInGame) {
+        return;
+    }
+    invokeRefreshCallback(findKnownRefreshCallback(FontRefreshTarget));
+    refreshAdditionalNativeGuiRoots(guiInGame);
+    notifyResolutionRefreshCallbacks();
+}
+
 extern "C" int __cdecl registerResolutionRefreshCallback(
     ResolutionRefreshCallback callback) {
     if (!callback) {
@@ -442,7 +456,7 @@ extern "C" void __cdecl onResolutionModeCommitted(void* guiInGame) {
     // renderer, GUI render area, and its safe native UI subset. Observing the
     // dimensions here guarantees that even a change with no scaled constructor
     // callbacks publishes a new layout generation before the setter returns.
-    updateScaleState();
+    updateScaleState(true);
     if (!isCurrentGuiInGame(guiInGame)) {
         return;
     }
