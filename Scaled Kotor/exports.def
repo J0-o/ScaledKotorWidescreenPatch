@@ -3,6 +3,7 @@ EXPORTS
     getUniversalScaleState
     onResolutionModeCommitted
     queueVideoModeResetForAntiAliasChange
+    reloadScaleFactor
     registerResolutionRefreshCallback
     setResolutionButtonAvailability
     unregisterResolutionRefreshCallback

@@ -1,0 +1,32 @@
+[menu]
+name = "Scaled Kotor"
+description = "Expands supported resolutions and scales all Menus/HUD."
+
+# Manifest id of the patch that owns this menu.
+# Default `patch` for every option below, and how their functions get resolved.
+patch = "scaled-kotor"
+
+[[options]]
+name = "UI Scale"
+
+# slider will provide an integer between min and max.
+# The game's slider control has no minimum -- it runs 0..(max - min) internally,
+# and `min` is added back on before the value is stored. `min` may therefore be
+# negative, which the control on its own could not represent.
+type = "slider"
+min = 10
+max = 15
+
+default = 12
+
+ini = "ScaledKotor.ini"
+category = "Scaled Kotor"
+key = "ScaleFactor"
+description = "Controls how text and some UI elements are scaled."
+
+[[options]]
+name = "Reload Scale Factor"
+type = "button"
+key = "ScaleFactor"
+function = "reloadScaleFactor"
+description = "Rereads ScaleFactor from ScaledKotor.ini and reapplies scaled UI and font metrics."
