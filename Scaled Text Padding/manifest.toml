@@ -1,7 +1,7 @@
 [patch]
 id = "scaled-text-padding-v1"
 name = "Scaled Text Padding"
-version = "1.4.1"
+version = "1.4.2"
 author = "J"
 description = "Adds resolution-scaled padding to descriptions and selectable list items"
 

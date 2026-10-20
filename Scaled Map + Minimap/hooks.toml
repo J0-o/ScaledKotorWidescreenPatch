@@ -53,6 +53,23 @@ exclude_from_restore = []
 source = "esi"
 type = "pointer"
 
+# CSWGuiMapHider::Draw renders the fog grid before it places markers. Scale the
+# shared coordinate dimensions only for that grid loop, then restore the stable
+# 440x256 marker domain before marker placement begins.
+[[hooks]]
+address = 0x0069449B
+type = "detour"
+function = "beginMenuMapGridScale"
+original_bytes = [0xDB, 0x44, 0x24, 0x44, 0x8B, 0x7C, 0x24, 0x44]
+exclude_from_restore = []
+
+[[hooks]]
+address = 0x006945E3
+type = "detour"
+function = "endMenuMapGridScale"
+original_bytes = [0x8B, 0x15, 0x3C, 0xE4, 0x78, 0x00, 0x52]
+exclude_from_restore = []
+
 [[hooks.parameters]]
 source = "eax"
 type = "pointer"

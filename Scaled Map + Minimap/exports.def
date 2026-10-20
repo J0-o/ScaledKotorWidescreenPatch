@@ -1,5 +1,7 @@
 LIBRARY ScaledMapMinimap
 EXPORTS
+    beginMenuMapGridScale
+    endMenuMapGridScale
     prepareMenuMapScale
     prepareMenuMapIconMaterials
     prepareMenuMapDraw

@@ -97,6 +97,17 @@ type = "pointer"
 # that inflated extent back into reusable rows. Remove the addition so repeated
 # Powers/Feats population cannot feed a larger height into the next pass.
 [[hooks]]
+address = 0x0041B140
+type = "detour"
+function = "prepareAbilitiesListLayout"
+original_bytes = [0x83, 0xEC, 0x20, 0x53, 0x56]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks]]
 address = 0x0041B507
 type = "simple"
 original_bytes = [0x03, 0xEA]

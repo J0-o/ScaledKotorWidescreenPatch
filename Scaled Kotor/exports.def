@@ -1,6 +1,7 @@
 LIBRARY ScaledKotor
 EXPORTS
     getUniversalScaleState
+    flushPendingScaleRefresh
     onResolutionModeCommitted
     queueVideoModeResetForAntiAliasChange
     reloadScaleFactor

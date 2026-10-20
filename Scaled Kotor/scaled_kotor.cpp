@@ -1,3 +1,4 @@
+// Scaled Kotor provider and deferred refresh implementation.
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -71,6 +72,7 @@ constexpr RefreshTarget RefreshTargets[] = {
     { "refreshResolutionDependentUi_scaled_scrollbars", "scaled-scrollbars-v1.dll" },
     { "refreshResolutionDependentUi_scaled_map_minimap", "area-map-hud-minimap-2x-scale-v1.dll" },
     { "refreshResolutionDependentUi_scaled_list_items", "list-item-height-2x-v1.dll" },
+    { "refreshResolutionDependentUi_scaled_text_padding", "scaled-text-padding-v1.dll" },
 };
 constexpr char ResolutionRefreshExport[] = "refreshResolutionDependentUi";
 
@@ -331,6 +333,22 @@ bool updateScaleState(bool reloadSettings = false) {
     return true;
 }
 
+enum PendingScaleRefresh {
+    PendingGeometryRefresh = 1,
+    PendingContentRefresh = 2,
+};
+
+LONG pendingScaleRefresh = 0;
+
+void queueScaleRefresh(LONG flags) {
+    // All three entry points run on the game's main thread.
+    pendingScaleRefresh |= flags;
+}
+
+void invokeKnownRefreshTarget(size_t index) {
+    invokeRefreshCallback(findKnownRefreshCallback(RefreshTargets[index]));
+}
+
 }
 
 extern "C" void __cdecl setResolutionButtonAvailability(void* graphicsOptions) {
@@ -339,14 +357,11 @@ extern "C" void __cdecl setResolutionButtonAvailability(void* graphicsOptions) {
     }
 
     __try {
-        void* virtualMachine =
-            *reinterpret_cast<void* const volatile*>(VirtualMachinePointerAddress);
         void* resolutionButton =
             static_cast<unsigned char*>(graphicsOptions) + ResolutionButtonOffset;
-
         SetButtonEnabledFn setEnabled =
             reinterpret_cast<SetButtonEnabledFn>(0x00418DB0);
-        setEnabled(resolutionButton, virtualMachine == nullptr ? 1 : 0);
+        setEnabled(resolutionButton, 1);
     }
     __except (EXCEPTION_EXECUTE_HANDLER) {
     }
@@ -410,14 +425,9 @@ extern "C" const UniversalScaleState* __cdecl getUniversalScaleState() {
 }
 
 extern "C" void __cdecl reloadScaleFactor(const char*, const char*) {
-    updateScaleState(true);
-    void* guiInGame = currentGuiInGame();
-    if (!guiInGame) {
-        return;
+    if (updateScaleState(true)) {
+        queueScaleRefresh(PendingContentRefresh);
     }
-    invokeRefreshCallback(findKnownRefreshCallback(FontRefreshTarget));
-    refreshAdditionalNativeGuiRoots(guiInGame);
-    notifyResolutionRefreshCallbacks();
 }
 
 extern "C" int __cdecl registerResolutionRefreshCallback(
@@ -452,22 +462,50 @@ extern "C" void __cdecl unregisterResolutionRefreshCallback(
 }
 
 extern "C" void __cdecl onResolutionModeCommitted(void* guiInGame) {
-    // 0x005F1A70 runs after the stock resolution setter has updated the
-    // renderer, GUI render area, and its safe native UI subset. Observing the
-    // dimensions here guarantees that even a change with no scaled constructor
-    // callbacks publishes a new layout generation before the setter returns.
     updateScaleState(true);
     if (!isCurrentGuiInGame(guiInGame)) {
         return;
     }
-    invokeRefreshCallback(findKnownRefreshCallback(FontRefreshTarget));
-    refreshAdditionalNativeGuiRoots(guiInGame);
-    notifyResolutionRefreshCallbacks();
 
-    // Resolution changes can leave KotOR's keyboard input inactive until the
-    // window is reactivated. This is the same guarded cleanup used after movies.
+    // Map/minimap publishes absolute engine dimensions rather than mutating a
+    // live GUI tree. The resolution transition still consumes those shared
+    // dimensions before the next frame, so keep this one update synchronous.
+    invokeKnownRefreshTarget(6);
+
+    // The stock resolution path has already rebuilt its native subset. Defer
+    // patch-owned work until the event stack has unwound to the next frame.
+    queueScaleRefresh(PendingGeometryRefresh | PendingContentRefresh);
+
     using ActivateRenderWindowFn = void(__cdecl*)();
     reinterpret_cast<ActivateRenderWindowFn>(ActivateRenderWindowAddress)();
+}
+
+extern "C" void __cdecl flushPendingScaleRefresh() {
+    const LONG pending = pendingScaleRefresh;
+    pendingScaleRefresh = 0;
+    if (pending == 0 || !currentGuiInGame()) {
+        return;
+    }
+
+    if ((pending & PendingContentRefresh) != 0) {
+        invokeRefreshCallback(findKnownRefreshCallback(FontRefreshTarget));
+    }
+
+    if ((pending & PendingGeometryRefresh) != 0) {
+        // Menu, class selection, small panels, and scrollbars.
+        invokeKnownRefreshTarget(0);
+        invokeKnownRefreshTarget(3);
+        invokeKnownRefreshTarget(4);
+        invokeKnownRefreshTarget(5);
+    }
+
+    if ((pending & PendingContentRefresh) != 0) {
+        // Inventory/container, popups, list-item metrics, then list padding.
+        invokeKnownRefreshTarget(1);
+        invokeKnownRefreshTarget(2);
+        invokeKnownRefreshTarget(7);
+        invokeKnownRefreshTarget(8);
+    }
 }
 
 BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {

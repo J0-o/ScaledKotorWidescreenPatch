@@ -1,3 +1,4 @@
 LIBRARY ScaledTextPadding
 EXPORTS
     applyScaledTextPadding
+    refreshResolutionDependentUi

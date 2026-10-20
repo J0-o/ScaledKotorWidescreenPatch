@@ -5,4 +5,5 @@ EXPORTS
     setFeatGroupRowHeight
     setFeatStoredHeight
     setGenericListRowHeight
+    prepareAbilitiesListLayout
     refreshResolutionDependentUi

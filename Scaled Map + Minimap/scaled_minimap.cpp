@@ -1,3 +1,4 @@
+// HUD minimap scaling implementation.
 #include "scaled_minimap.h"
 #include "../Common/ResolutionScale.h"
 
@@ -224,7 +225,10 @@ void scaleHudMinimapExtent(Rect* rect, DWORD* stack) {
     scaleKnownHudMinimapRect(rect, *scale);
 }
 
-void prepareHudMinimapScale(void* hud, int* mapX, int* mapY, int* rectWidth, int* rectHeight) {
+void prepareHudMinimapScale(
+    void* hud, int* mapX, int* mapY, int* rectWidth, int* rectHeight) {
+    UNREFERENCED_PARAMETER(mapX);
+    UNREFERENCED_PARAMETER(mapY);
     UNREFERENCED_PARAMETER(rectWidth);
     UNREFERENCED_PARAMETER(rectHeight);
 
@@ -233,15 +237,9 @@ void prepareHudMinimapScale(void* hud, int* mapX, int* mapY, int* rectWidth, int
         return;
     }
 
-    if (mapX) {
-        *mapX = unscaleUiValueToBase(
-            *mapX, BaseHeight, UiBaseHeight, *scale);
-    }
-    if (mapY) {
-        *mapY = unscaleUiValueToBase(
-            *mapY, BaseHeight, UiBaseHeight, *scale);
-    }
-
+    // Map coordinates already remain in the stable 440x256 domain. Only the
+    // minimap viewport and controls scale; the draw paths then zoom the
+    // 512x256 atlas and 440x256 fog grid from their respective native bases.
     const int viewportSize = scaleMinimapValue(MinimapViewportSize, *scale);
     char* base = static_cast<char*>(hud);
     writeMemory(base + 0x6088, &viewportSize, sizeof(viewportSize));
