@@ -12,6 +12,7 @@ namespace {
 constexpr uintptr_t ScreenWidthAddress = 0x0078D1D4;
 constexpr uintptr_t ScreenHeightAddress = 0x0078D1D8;
 constexpr uintptr_t CenterGuiRootAddress = 0x0040A600;
+constexpr uintptr_t ResetInterfaceForSizeAddress = 0x0062F5F0;
 constexpr uintptr_t ActivateRenderWindowAddress = 0x00401E00;
 constexpr uintptr_t VirtualMachinePointerAddress = 0x007A3A00;
 constexpr uintptr_t AppManagerPointerAddress = 0x007A39FC;
@@ -30,10 +31,13 @@ constexpr int BaseHeight = 480;
 constexpr int MinimumContentScaleHeight = 1080;
 constexpr int DefaultScaleFactor = 12;
 constexpr double DefaultAdditionalScaleFactor = 1.2;
+constexpr int DefaultHudScaleFactor = 10;
+constexpr double DefaultAdditionalHudScaleFactor = 1.0;
 
 char IniFile[] = "ScaledKotor.ini";
 char IniSection[] = "Scaled Kotor";
 char ScaleFactorKey[] = "ScaleFactor";
+char HudScaleFactorKey[] = "HudScaleFactor";
 
 UniversalScaleState scaleState = {
     DefaultScreenWidth,
@@ -46,11 +50,16 @@ UniversalScaleState scaleState = {
     1,
     0,
     0,
+    DefaultScreenWidth,
+    DefaultScreenHeight,
+    5,
+    4,
 };
 
 bool settingsLoaded = false;
 bool scaleStateInitialized = false;
 double additionalScaleFactor = DefaultAdditionalScaleFactor;
+double additionalHudScaleFactor = DefaultAdditionalHudScaleFactor;
 constexpr int MaxResolutionRefreshCallbacks = 32;
 ResolutionRefreshCallback refreshCallbacks[MaxResolutionRefreshCallbacks] = {};
 
@@ -245,15 +254,20 @@ void writeIniInt(const char* path, char* key, int value) {
     WritePrivateProfileStringA(IniSection, key, buffer, path);
 }
 
-bool loadSettings(bool forceReload = false) {
+enum SettingsChange {
+    ContentScaleSettingsChanged = 1,
+    HudScaleSettingsChanged = 2,
+};
+
+int loadSettings(bool forceReload = false) {
     if (settingsLoaded && !forceReload) {
-        return false;
+        return 0;
     }
     settingsLoaded = true;
 
     char path[MAX_PATH];
     if (!pathBesideExe(IniFile, path, MAX_PATH)) {
-        return false;
+        return 0;
     }
 
     int scaleValue = DefaultScaleFactor;
@@ -261,10 +275,25 @@ bool loadSettings(bool forceReload = false) {
         writeIniInt(path, ScaleFactorKey, DefaultScaleFactor);
     }
 
+    int hudScaleValue = DefaultHudScaleFactor;
+    if (!readIniInt(path, HudScaleFactorKey, hudScaleValue)) {
+        writeIniInt(path, HudScaleFactorKey, DefaultHudScaleFactor);
+    }
+
     const double previousScaleFactor = additionalScaleFactor;
+    const double previousHudScaleFactor = additionalHudScaleFactor;
     additionalScaleFactor =
         scaleValue >= 10 ? static_cast<double>(scaleValue) / 10.0 : scaleValue;
-    return additionalScaleFactor != previousScaleFactor;
+    additionalHudScaleFactor = static_cast<double>(hudScaleValue) / 10.0;
+
+    int changes = 0;
+    if (additionalScaleFactor != previousScaleFactor) {
+        changes |= ContentScaleSettingsChanged;
+    }
+    if (additionalHudScaleFactor != previousHudScaleFactor) {
+        changes |= HudScaleSettingsChanged;
+    }
+    return changes;
 }
 
 int readPositiveInt(uintptr_t address, int fallback) {
@@ -277,13 +306,16 @@ int readPositiveInt(uintptr_t address, int fallback) {
     }
 }
 
-bool updateScaleState(bool reloadSettings = false) {
-    const bool settingsChanged = loadSettings(reloadSettings);
+bool updateScaleState(bool reloadSettings = false, int* settingsChangesOut = nullptr) {
+    const int settingsChanges = loadSettings(reloadSettings);
+    if (settingsChangesOut) {
+        *settingsChangesOut = settingsChanges;
+    }
 
     const int screenWidth = readPositiveInt(ScreenWidthAddress, DefaultScreenWidth);
     const int screenHeight = readPositiveInt(ScreenHeightAddress, DefaultScreenHeight);
     if (scaleStateInitialized &&
-        !settingsChanged &&
+        settingsChanges == 0 &&
         screenWidth == scaleState.screenWidth &&
         screenHeight == scaleState.screenHeight) {
         return false;
@@ -316,6 +348,15 @@ bool updateScaleState(bool reloadSettings = false) {
         static_cast<long long>(BaseWidth) * scaleNumerator, scaleDenominator);
     const int uiHeight = divideRoundedNearest(
         static_cast<long long>(BaseHeight) * scaleNumerator, scaleDenominator);
+    const int hudScaleNumerator = static_cast<int>(
+        scaleNumerator * additionalHudScaleFactor * 1000.0 + 0.5);
+    const int hudScaleDenominator = scaleDenominator * 1000;
+    const int hudWidth = divideRoundedNearest(
+        static_cast<long long>(BaseWidth) * hudScaleNumerator,
+        hudScaleDenominator);
+    const int hudHeight = divideRoundedNearest(
+        static_cast<long long>(BaseHeight) * hudScaleNumerator,
+        hudScaleDenominator);
 
     scaleState = {
         screenWidth,
@@ -328,6 +369,10 @@ bool updateScaleState(bool reloadSettings = false) {
         contentScaleDenominator,
         contentScalingEnabled,
         scaleState.layoutGeneration + 1,
+        hudWidth,
+        hudHeight,
+        hudScaleNumerator,
+        hudScaleDenominator,
     };
     scaleStateInitialized = true;
     return true;
@@ -336,6 +381,7 @@ bool updateScaleState(bool reloadSettings = false) {
 enum PendingScaleRefresh {
     PendingGeometryRefresh = 1,
     PendingContentRefresh = 2,
+    PendingHudRefresh = 4,
 };
 
 LONG pendingScaleRefresh = 0;
@@ -425,8 +471,15 @@ extern "C" const UniversalScaleState* __cdecl getUniversalScaleState() {
 }
 
 extern "C" void __cdecl reloadScaleFactor(const char*, const char*) {
-    if (updateScaleState(true)) {
+    int settingsChanges = 0;
+    if (!updateScaleState(true, &settingsChanges)) {
+        return;
+    }
+    if ((settingsChanges & ContentScaleSettingsChanged) != 0) {
         queueScaleRefresh(PendingContentRefresh);
+    }
+    if ((settingsChanges & HudScaleSettingsChanged) != 0) {
+        queueScaleRefresh(PendingHudRefresh);
     }
 }
 
@@ -483,8 +536,19 @@ extern "C" void __cdecl onResolutionModeCommitted(void* guiInGame) {
 extern "C" void __cdecl flushPendingScaleRefresh() {
     const LONG pending = pendingScaleRefresh;
     pendingScaleRefresh = 0;
-    if (pending == 0 || !currentGuiInGame()) {
+    void* guiInGame = currentGuiInGame();
+    if (pending == 0 || !guiInGame) {
         return;
+    }
+
+    if ((pending & PendingHudRefresh) != 0) {
+        using ResetInterfaceForSizeFn = void(__thiscall*)(void*);
+        __try {
+            reinterpret_cast<ResetInterfaceForSizeFn>(
+                ResetInterfaceForSizeAddress)(guiInGame);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+        }
     }
 
     if ((pending & PendingContentRefresh) != 0) {

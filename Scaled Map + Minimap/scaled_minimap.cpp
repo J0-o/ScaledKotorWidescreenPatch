@@ -1,6 +1,6 @@
 // HUD minimap scaling implementation.
 #include "scaled_minimap.h"
-#include "../Common/ResolutionScale.h"
+#include "../Scaled Kotor/resolution_scale.h"
 
 namespace HudMinimapScale {
 
@@ -103,11 +103,11 @@ void restoreAreaMapViewportAfterGrid() {
 }
 
 int scaleMinimapValue(int value, const UniversalScaleState& scale) {
-    return scaleUiValueFromBase(value, BaseHeight, UiBaseHeight, scale);
+    return scaleHudValueFromBase(value, BaseHeight, UiBaseHeight, scale);
 }
 
 bool isNativeScale(const UniversalScaleState& scale) {
-    return scale.uiWidth == BaseWidth && scale.uiHeight == BaseHeight;
+    return isIdentityHudScale(scale);
 }
 
 void callControlSetRect(char* control, const Rect& rect) {

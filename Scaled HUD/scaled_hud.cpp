@@ -1,5 +1,5 @@
 #include "scaled_hud.h"
-#include "../Common/ResolutionScale.h"
+#include "../Scaled Kotor/resolution_scale.h"
 
 namespace HudScale {
 
@@ -131,16 +131,15 @@ bool safeReadRect(const void* address, Rect& value) {
 }
 
 int scaleX(int value, const UniversalScaleState& scale) {
-    return scaleUiValueFromBase(value, BaseWidth, UiBaseWidth, scale);
+    return scaleHudValueFromBase(value, BaseWidth, UiBaseWidth, scale);
 }
 
 int scaleY(int value, const UniversalScaleState& scale) {
-    return scaleUiValueFromBase(value, BaseHeight, UiBaseHeight, scale);
+    return scaleHudValueFromBase(value, BaseHeight, UiBaseHeight, scale);
 }
 
 int hudCanvasLeft(const UniversalScaleState& scale) {
-    const int offset = (scale.screenWidth - scale.uiWidth) / 2;
-    return offset > 0 ? offset : 0;
+    return (scale.screenWidth - scale.hudWidth) / 2;
 }
 
 bool hasUsefulRect(const Rect& rect) {
@@ -428,7 +427,7 @@ void scaleAreaTransitionOwner(char* owner, const UniversalScaleState& scale) {
     }
 
     const Rect scaledOwner = {
-        (scale.uiWidth - scaleX(AreaTransitionOwnerRect.width, scale)) / 2,
+        (scale.hudWidth - scaleX(AreaTransitionOwnerRect.width, scale)) / 2,
         scaleY(AreaTransitionOwnerRect.top, scale),
         scaleX(AreaTransitionOwnerRect.width, scale),
         scaleY(AreaTransitionOwnerRect.height, scale)
@@ -440,8 +439,7 @@ void scaleAreaTransitionOwner(char* owner, const UniversalScaleState& scale) {
 
 void scaleHudControls(void* hud) {
     const UniversalScaleState* scale = ResolutionScale::get();
-    if (!hud || !scale ||
-        (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
+    if (!hud || !scale || isIdentityHudScale(*scale)) {
         return;
     }
 
@@ -471,8 +469,7 @@ void scaleHudControls(void* hud) {
 
 void scaleHudActionDescription(void* hud) {
     const UniversalScaleState* scale = ResolutionScale::get();
-    if (!hud || !scale ||
-        (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
+    if (!hud || !scale || isIdentityHudScale(*scale)) {
         return;
     }
 
@@ -481,8 +478,7 @@ void scaleHudActionDescription(void* hud) {
 
 void scaleAreaTransitionPrompt(void* prompt) {
     const UniversalScaleState* scale = ResolutionScale::get();
-    if (!prompt || !scale ||
-        (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
+    if (!prompt || !scale || isIdentityHudScale(*scale)) {
         return;
     }
 

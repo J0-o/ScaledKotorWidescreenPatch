@@ -25,8 +25,19 @@ key = "ScaleFactor"
 description = "Controls how text and some UI elements are scaled."
 
 [[options]]
-name = "Reload Scale Factor"
+name = "HUD Scale"
+type = "slider"
+min = 5
+max = 20
+default = 10
+ini = "ScaledKotor.ini"
+category = "Scaled Kotor"
+key = "HudScaleFactor"
+description = "Multiplies the resolution-derived HUD size. 10 is 1.0x."
+
+[[options]]
+name = "Reload Scale Factors"
 type = "button"
 key = "ScaleFactor"
 function = "reloadScaleFactor"
-description = "Rereads ScaleFactor from ScaledKotor.ini and reapplies scaled UI and font metrics."
+description = "Rereads ScaleFactor and HudScaleFactor, then reapplies scaled UI, font, and HUD metrics."

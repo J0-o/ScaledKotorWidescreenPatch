@@ -1,5 +1,5 @@
 #include "scaled_floating_target.h"
-#include "../Common/ResolutionScale.h"
+#include "../Scaled Kotor/resolution_scale.h"
 #include "GameAPI/GameVersion.h"
 
 #include <cmath>
@@ -150,10 +150,10 @@ void scaleKnownControl(char* control, const UniversalScaleState& scale) {
             continue;
         }
 
-        rect.left = scaleUiValueFromBase(rect.left, BaseWidth, UiBaseWidth, scale);
-        rect.top = scaleUiValueFromBase(rect.top, BaseHeight, UiBaseHeight, scale);
-        rect.width = scaleUiValueFromBase(rect.width, BaseWidth, UiBaseWidth, scale);
-        rect.height = scaleUiValueFromBase(rect.height, BaseHeight, UiBaseHeight, scale);
+        rect.left = scaleHudValueFromBase(rect.left, BaseWidth, UiBaseWidth, scale);
+        rect.top = scaleHudValueFromBase(rect.top, BaseHeight, UiBaseHeight, scale);
+        rect.width = scaleHudValueFromBase(rect.width, BaseWidth, UiBaseWidth, scale);
+        rect.height = scaleHudValueFromBase(rect.height, BaseHeight, UiBaseHeight, scale);
         callControlSetRect(control, rect);
         return;
     }
@@ -163,8 +163,7 @@ void scaleKnownControl(char* control, const UniversalScaleState& scale) {
 
 void scaleTargetControls(void* owner) {
     const UniversalScaleState* scale = ResolutionScale::get();
-    if (!owner || !scale ||
-        (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
+    if (!owner || !scale || isIdentityHudScale(*scale)) {
         return;
     }
 
@@ -183,8 +182,7 @@ void scaleTargetControls(void* owner) {
 
 void correctTargetVerticalBounds(void* hud) {
     const UniversalScaleState* scale = ResolutionScale::get();
-    if (!hud || !scale ||
-        (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
+    if (!hud || !scale || isIdentityHudScale(*scale)) {
         return;
     }
 
@@ -200,7 +198,7 @@ void correctTargetVerticalBounds(void* hud) {
         return;
     }
 
-    clampHeight += scaleUiValueFromBase(
+    clampHeight += scaleHudValueFromBase(
         PauseRect.top, BaseHeight, UiBaseHeight, *scale) - PauseRect.top;
     *reinterpret_cast<int*>(base + TargetClampHeightOffset) = clampHeight;
 }

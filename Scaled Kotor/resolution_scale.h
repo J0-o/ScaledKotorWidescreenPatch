@@ -17,9 +17,18 @@ struct UniversalScaleState {
     // Increments whenever the provider observes a different screen size.
     // Consumers can use this to reapply base-derived layout exactly once.
     unsigned int layoutGeneration;
+    // Resolution-derived HUD canvas after applying the configurable HUD multiplier.
+    int hudWidth;
+    int hudHeight;
+    int hudScaleNumerator;
+    int hudScaleDenominator;
 };
 
 typedef void(__cdecl *ResolutionRefreshCallback)();
+
+namespace ResolutionScale {
+const UniversalScaleState* get();
+}
 
 inline int divideRoundedNearest(long long numerator, long long denominator) {
     if (denominator <= 0) {
@@ -78,6 +87,18 @@ inline int unscaleUiValueToBase(int value, int sourceBase, int uiBase,
         static_cast<long long>(uiBase) * scale.scaleNumerator);
 }
 
+inline int scaleHudValueFromBase(int value, int sourceBase, int uiBase,
+                                 const UniversalScaleState& scale) {
+    if (sourceBase <= 0 || uiBase <= 0 ||
+        scale.hudScaleNumerator <= 0 || scale.hudScaleDenominator <= 0) {
+        return value;
+    }
+
+    return divideRoundedNearest(
+        static_cast<long long>(value) * uiBase * scale.hudScaleNumerator,
+        static_cast<long long>(sourceBase) * scale.hudScaleDenominator);
+}
+
 inline float twoXScaleAdjustment(const UniversalScaleState& scale) {
     if (!scale.contentScalingEnabled ||
         scale.contentScaleNumerator <= 0 ||
@@ -108,6 +129,10 @@ inline bool isIdentityUiScale(const UniversalScaleState& scale) {
 inline bool isIdentityContentScale(const UniversalScaleState& scale) {
     return !scale.contentScalingEnabled ||
         scale.contentScaleNumerator == scale.contentScaleDenominator;
+}
+
+inline bool isIdentityHudScale(const UniversalScaleState& scale) {
+    return scale.hudWidth == 800 && scale.hudHeight == 600;
 }
 
 extern "C" const UniversalScaleState* __cdecl getUniversalScaleState();
