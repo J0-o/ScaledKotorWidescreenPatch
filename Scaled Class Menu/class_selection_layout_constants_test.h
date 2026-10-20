@@ -11,8 +11,8 @@ struct Rect {
     int height;
 };
 
-void patchClassSelectionLayoutRects(void* ownerStackSlot, void* currentSlotMarker, void* baseRectStack, void* wrapperRectStack);
+void prepareClassSelectionLayout(void* owner);
+void finishClassSelectionLayout(void* ownerStackSlot);
 void patchInitialClassSelectionRects(void* owner);
-void refreshClassSelectionRects();
 
 }

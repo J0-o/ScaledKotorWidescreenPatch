@@ -8,15 +8,16 @@ namespace {
 constexpr DWORD ClassSelectionOwnerVtable = 0x00758020;
 constexpr DWORD ClassSlotWrapperVtable = 0x00752E30;
 constexpr DWORD SlotArrayOffset = 0x6C;
-constexpr DWORD SlotMarkerOffset = 0x2C0;
 constexpr DWORD SlotStride = 0x25C;
 constexpr int SlotCount = 6;
 constexpr int BaseWidth = 800;
 constexpr int BaseHeight = 600;
 constexpr int UiBaseWidth = 640;
 constexpr int UiBaseHeight = 480;
+constexpr int BaseBoxTop = 128;
 constexpr int BaseBoxWidth = 94;
 constexpr int BaseBoxHeight = 240;
+constexpr int BaseHoverGrow = 10;
 constexpr int BaseBoxLefts[] = {
     77,
     190,
@@ -33,7 +34,6 @@ constexpr DWORD SlotRectOffsets[] = {
     0x1C4,
     0x220,
 };
-void* liveClassSelectionOwner = nullptr;
 
 bool safeReadDword(const void* address, DWORD& value) {
     __try {
@@ -76,102 +76,138 @@ bool isUsefulRootRect(const Rect& rect) {
         rect.height <= 8192;
 }
 
-Rect scaledSlotRect(int slotIndex, const Rect& root, const UniversalScaleState& scale) {
+int clampHoverGrow(int value) {
+    return value < 0 ? 0 : (value > BaseHoverGrow ? BaseHoverGrow : value);
+}
+
+Rect nativeSlotRect(int slotIndex, int grow) {
+    grow = clampHoverGrow(grow);
+    return {
+        BaseBoxLefts[slotIndex] - grow,
+        BaseBoxTop - grow,
+        BaseBoxWidth + (grow * 2),
+        BaseBoxHeight + (grow * 2),
+    };
+}
+
+Rect scaledSlotRect(int slotIndex, int grow, const Rect& root,
+                    const UniversalScaleState& scale) {
+    grow = clampHoverGrow(grow);
     const int offsetX = (root.width - scale.uiWidth) / 2;
-    const int width = scaleUiValueFromBase(
-        BaseBoxWidth, BaseWidth, UiBaseWidth, scale);
-    const int height = scaleUiValueFromBase(
+    const int scaledGrow = scaleUiValueFromBase(
+        grow, BaseHeight, UiBaseHeight, scale);
+    const int normalHeight = scaleUiValueFromBase(
         BaseBoxHeight, BaseHeight, UiBaseHeight, scale);
 
     return {
         offsetX + scaleUiValueFromBase(
-            BaseBoxLefts[slotIndex], BaseWidth, UiBaseWidth, scale),
-        (root.height - height) / 2,
-        width,
-        height,
+            BaseBoxLefts[slotIndex] - grow,
+            BaseWidth, UiBaseWidth, scale),
+        (root.height - normalHeight) / 2 - scaledGrow,
+        scaleUiValueFromBase(
+            BaseBoxWidth + (grow * 2), BaseWidth, UiBaseWidth, scale),
+        scaleUiValueFromBase(
+            BaseBoxHeight + (grow * 2), BaseHeight, UiBaseHeight, scale),
     };
 }
 
-}
-
-void patchClassSelectionLayoutRects(void* ownerStackSlot, void* currentSlotMarker, void* baseRectStack, void* wrapperRectStack) {
-    const UniversalScaleState* scale = ResolutionScale::get();
-    if (!scale || (scale->uiWidth == BaseWidth && scale->uiHeight == BaseHeight)) {
-        return;
+bool validateOwner(char* owner, Rect& root) {
+    if (!owner) {
+        return false;
     }
-
-    DWORD ownerValue = 0;
-    if (!safeReadDword(ownerStackSlot, ownerValue) || ownerValue == 0) {
-        return;
-    }
-
-    char* owner = reinterpret_cast<char*>(ownerValue);
     DWORD ownerVtable = 0;
     if (!safeReadDword(owner, ownerVtable) || ownerVtable != ClassSelectionOwnerVtable) {
-        return;
+        return false;
     }
-
-    char* marker = static_cast<char*>(currentSlotMarker);
-    const ptrdiff_t markerDelta = marker - (owner + SlotMarkerOffset);
-    if (markerDelta < 0 || (markerDelta % SlotStride) != 0) {
-        return;
-    }
-
-    const int slotIndex = static_cast<int>(markerDelta / SlotStride);
-    if (slotIndex < 0 || slotIndex >= SlotCount) {
-        return;
-    }
-
-    Rect root = {};
-    if (!safeReadRect(owner + sizeof(DWORD), root) || !isUsefulRootRect(root)) {
-        return;
-    }
-
-    const Rect target = scaledSlotRect(slotIndex, root, *scale);
-    writeRect(baseRectStack, target);
-    writeRect(wrapperRectStack, target);
+    return safeReadRect(owner + sizeof(DWORD), root) && isUsefulRootRect(root);
 }
 
-void patchInitialClassSelectionRects(void* ownerPtr) {
+void writeSlotRects(char* slot, const Rect& rect) {
+    for (int rectIndex = 0;
+         rectIndex < static_cast<int>(sizeof(SlotRectOffsets) /
+                                      sizeof(SlotRectOffsets[0]));
+         ++rectIndex) {
+        writeRect(slot + SlotRectOffsets[rectIndex] + sizeof(DWORD), rect);
+    }
+}
+
+int displayedHoverGrow(const Rect& current, int slotIndex, const Rect& root,
+                       const UniversalScaleState& scale) {
+    const Rect normal = scaledSlotRect(slotIndex, 0, root, scale);
+    return clampHoverGrow(unscaleUiValueToBase(
+        normal.top - current.top, BaseHeight, UiBaseHeight, scale));
+}
+
+void scaleNativeSlotRects(char* owner, const Rect& root,
+                          const UniversalScaleState& scale) {
+    for (int slotIndex = 0; slotIndex < SlotCount; ++slotIndex) {
+        char* slot = owner + SlotArrayOffset + (SlotStride * slotIndex);
+        Rect native = {};
+        if (!safeReadRect(slot + sizeof(DWORD), native)) {
+            continue;
+        }
+        const int grow = clampHoverGrow(BaseBoxTop - native.top);
+        writeSlotRects(slot, scaledSlotRect(slotIndex, grow, root, scale));
+    }
+}
+
+}
+
+void prepareClassSelectionLayout(void* ownerPtr) {
     const UniversalScaleState* scale = ResolutionScale::get();
     if (!scale) {
         return;
     }
 
     char* owner = static_cast<char*>(ownerPtr);
-    if (owner == nullptr) {
-        return;
-    }
-
-    DWORD ownerVtable = 0;
-    if (!safeReadDword(owner, ownerVtable) || ownerVtable != ClassSelectionOwnerVtable) {
-        return;
-    }
-    liveClassSelectionOwner = owner;
-
     Rect root = {};
-    if (!safeReadRect(owner + sizeof(DWORD), root) || !isUsefulRootRect(root)) {
+    if (!validateOwner(owner, root)) {
+        return;
+    }
+
+    for (int slotIndex = 0; slotIndex < SlotCount; ++slotIndex) {
+        char* slot = owner + SlotArrayOffset + (SlotStride * slotIndex);
+        Rect displayed = {};
+        if (!safeReadRect(slot + sizeof(DWORD), displayed)) {
+            continue;
+        }
+        const int grow = displayedHoverGrow(displayed, slotIndex, root, *scale);
+        writeSlotRects(slot, nativeSlotRect(slotIndex, grow));
+    }
+}
+
+void finishClassSelectionLayout(void* ownerStackSlot) {
+    const UniversalScaleState* scale = ResolutionScale::get();
+    DWORD ownerValue = 0;
+    if (!scale || !safeReadDword(ownerStackSlot, ownerValue)) {
+        return;
+    }
+
+    char* owner = reinterpret_cast<char*>(ownerValue);
+    Rect root = {};
+    if (!validateOwner(owner, root)) {
+        return;
+    }
+    scaleNativeSlotRects(owner, root, *scale);
+}
+
+void patchInitialClassSelectionRects(void* ownerPtr) {
+    const UniversalScaleState* scale = ResolutionScale::get();
+    char* owner = static_cast<char*>(ownerPtr);
+    Rect root = {};
+    if (!scale || !validateOwner(owner, root)) {
         return;
     }
 
     for (int slotIndex = 0; slotIndex < SlotCount; ++slotIndex) {
         char* slot = owner + SlotArrayOffset + (SlotStride * slotIndex);
         char* wrapper = slot + 0x1C4;
-
         DWORD wrapperVtable = 0;
-        if (!safeReadDword(wrapper, wrapperVtable) || wrapperVtable != ClassSlotWrapperVtable) {
-            continue;
-        }
-
-        const Rect target = scaledSlotRect(slotIndex, root, *scale);
-        for (int rectIndex = 0; rectIndex < static_cast<int>(sizeof(SlotRectOffsets) / sizeof(SlotRectOffsets[0])); ++rectIndex) {
-            writeRect(slot + SlotRectOffsets[rectIndex] + sizeof(DWORD), target);
+        if (safeReadDword(wrapper, wrapperVtable) &&
+            wrapperVtable == ClassSlotWrapperVtable) {
+            writeSlotRects(slot, scaledSlotRect(slotIndex, 0, root, *scale));
         }
     }
-}
-
-void refreshClassSelectionRects() {
-    patchInitialClassSelectionRects(liveClassSelectionOwner);
 }
 
 }

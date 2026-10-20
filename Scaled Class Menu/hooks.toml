@@ -1,10 +1,30 @@
-# FUN_006DC030 computes class-selection slot rects every frame, then calls
-# SetRect for the base slot object and wrapper object. Patch the stack rects
-# immediately before each SetRect pair, so the game's setters propagate the
-# desired geometry to child/mouseover/model rects.
+# FUN_006DC030 owns the native class-card hover animation. Present canonical
+# 800x600 card rects to the routine at entry, let it run unchanged, then map
+# its completed rects to the current UI canvas once at the common exit.
+[[hooks]]
+address = 0x006DC030
+type = "detour"
+function = "prepareClassSelectionLayout"
+original_bytes = [0x83, 0xEC, 0x2C, 0x53, 0x33, 0xC0]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "ecx"
+type = "pointer"
+
+[[hooks]]
+address = 0x006DC30A
+type = "detour"
+function = "finishClassSelectionLayout"
+original_bytes = [0x8B, 0x4C, 0x24, 0x40, 0x51, 0x8B, 0x4C, 0x24, 0x18]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esp+20"
+type = "pointer"
 
 # Constructor end, after StopLoadFromLayout and FUN_0040A630. This fixes the
-# first visible placement before the runtime layout path runs on hover/input.
+# first visible placement before the runtime layout path runs.
 [[hooks]]
 address = 0x006DCDCE
 type = "detour"
@@ -14,73 +34,4 @@ exclude_from_restore = []
 
 [[hooks.parameters]]
 source = "ebx"
-type = "pointer"
-
-[[hooks]]
-address = 0x006DC1D2
-type = "detour"
-function = "patchClassSelectionLayoutRects"
-original_bytes = [0x8B, 0x11, 0x50, 0xFF, 0x52, 0x04]
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "esp+20"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+44"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+28"
-type = "pointer"
-
-[[hooks]]
-address = 0x006DC2EA
-type = "detour"
-function = "patchClassSelectionLayoutRects"
-original_bytes = [0x8B, 0x11, 0x50, 0xFF, 0x52, 0x04]
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "esp+20"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+44"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+28"
-type = "pointer"
-
-[[hooks]]
-address = 0x006DC2B2
-type = "detour"
-function = "patchClassSelectionLayoutRects"
-original_bytes = [0x8B, 0x11, 0x50, 0xFF, 0x52, 0x04]
-exclude_from_restore = []
-
-[[hooks.parameters]]
-source = "esp+20"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+44"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+28"
 type = "pointer"
