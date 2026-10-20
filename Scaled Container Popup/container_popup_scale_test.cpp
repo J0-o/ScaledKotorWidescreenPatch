@@ -60,7 +60,10 @@ Rect scaledChildRect(const Rect& rect, const UniversalScaleState& scale) {
 }
 
 Rect scaledRootRect(const Rect& rect, const UniversalScaleState& scale) {
-    return scaledChildRect(rect, scale);
+    Rect scaled = scaledChildRect(rect, scale);
+    scaled.left = (scale.screenWidth - scaled.width) / 2;
+    scaled.top = (scale.screenHeight - scaled.height) / 2;
+    return scaled;
 }
 
 void callControlSetRect(char* control, const Rect& rect) {
