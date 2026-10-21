@@ -12,6 +12,7 @@ constexpr DWORD GuiManagerPointerAddress = 0x007A39F4;
 constexpr DWORD GuiManagerPanelsOffset = 0x88;
 constexpr DWORD GuiManagerPanelCountOffset = 0x8C;
 constexpr DWORD MainMenuVtable = 0x00752F70;
+constexpr DWORD LoadingScreenVtable = 0x00752DC0;
 constexpr DWORD FadePanelVtable = 0x0074FC60;
 constexpr DWORD TooltipPanelVtable = 0x00750030;
 constexpr DWORD AlignmentSliderVtable = 0x00756060;
@@ -24,6 +25,14 @@ constexpr DWORD PazaakOpponentHandBase = 0x564C;
 constexpr DWORD PazaakCardStride = 0x31C;
 constexpr DWORD PazaakCardLabelOffset = 0x1C4;
 constexpr DWORD PazaakCardFaceDrawModeOffset = 0x9C;
+constexpr DWORD PanelFlagsOffset = 0x44;
+constexpr DWORD PanelCenteringFlags = 0x60;
+constexpr char IniFile[] = "ScaledKotor.ini";
+constexpr char IniSection[] = "Scaled Kotor";
+constexpr char StretchLoadingScreensKey[] = "StretchLoadingScreens";
+
+bool stretchLoadingScreens = false;
+bool stretchLoadingScreensLoaded = false;
 
 struct ScaleState {
     int baseWidth;
@@ -60,6 +69,43 @@ bool safeReadDword(const void* address, DWORD& value) {
         value = 0;
         return false;
     }
+}
+
+bool pathBesideExe(const char* name, char* output, DWORD size) {
+    const DWORD length = GetModuleFileNameA(nullptr, output, size);
+    if (length == 0 || length >= size) {
+        return false;
+    }
+
+    char* separator = nullptr;
+    for (char* cursor = output; *cursor; ++cursor) {
+        if (*cursor == '\\') {
+            separator = cursor;
+        }
+    }
+    if (!separator ||
+        static_cast<DWORD>(separator + 1 - output) + lstrlenA(name) + 1 > size) {
+        return false;
+    }
+
+    lstrcpyA(separator + 1, name);
+    return true;
+}
+
+bool shouldStretchLoadingScreens() {
+    if (!stretchLoadingScreensLoaded) {
+        char path[MAX_PATH];
+        stretchLoadingScreens = pathBesideExe(IniFile, path, MAX_PATH) &&
+            GetPrivateProfileIntA(
+                IniSection, StretchLoadingScreensKey, 0, path) == 1;
+        stretchLoadingScreensLoaded = true;
+    }
+    return stretchLoadingScreens;
+}
+
+bool hasPanelVtable(void* panel, DWORD expected) {
+    DWORD vtable = 0;
+    return safeReadDword(panel, vtable) && vtable == expected;
 }
 
 bool writeMemory(void* address, const void* replacement, size_t size) {
@@ -120,8 +166,7 @@ bool isMainInterfacePanel(void* panel) {
 }
 
 bool isMainMenuPanel(void* panel) {
-    DWORD vtable = 0;
-    return safeReadDword(panel, vtable) && vtable == MainMenuVtable;
+    return hasPanelVtable(panel, MainMenuVtable);
 }
 
 bool isFadePanel(void* panel) {
@@ -298,6 +343,15 @@ void scalePanelBorder(char* panel, const Rect& scaledPanelRect) {
 bool makeScaleForPanel(void* panel, const Rect& original,
                        const UniversalScaleState& universalScale,
                        ScaleState& scale) {
+    if (hasPanelVtable(panel, LoadingScreenVtable) &&
+        original.left == 0 && original.top == 0 && hasUsefulRect(original)) {
+        scale = shouldStretchLoadingScreens() ?
+            makeFullscreenMenuScale(
+                original.width, original.height, universalScale) :
+            makeMenuScale(
+                original.width, original.height, universalScale);
+        return true;
+    }
     if (isMainMenuPanel(panel) && original.left == 0 && original.top == 0 &&
         hasUsefulRect(original)) {
         scale = makeFullscreenMenuScale(
@@ -351,6 +405,34 @@ void scalePanelTree(char* panel, DWORD vtable, const Rect& root,
     }
 }
 
+}
+
+bool isLoadingScreenPanel(void* panel) {
+    return hasPanelVtable(panel, LoadingScreenVtable);
+}
+
+void prepareLoadingScreenDraw(void* panel) {
+    if (!isLoadingScreenPanel(panel)) {
+        return;
+    }
+
+    __try {
+        DWORD& flags = *reinterpret_cast<DWORD*>(
+            static_cast<char*>(panel) + PanelFlagsOffset);
+        if (shouldStretchLoadingScreens()) {
+            flags &= ~PanelCenteringFlags;
+        }
+        else {
+            flags |= PanelCenteringFlags;
+        }
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
+void setStretchLoadingScreens(const char* value) {
+    stretchLoadingScreens = value && value[0] == '1' && value[1] == '\0';
+    stretchLoadingScreensLoaded = true;
 }
 
 void scaleMenuPanelTree(void* panel) {

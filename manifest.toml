@@ -1,9 +1,9 @@
 [patch]
 id = "scaled-kotor"
 name = "Scaled Kotor Complete"
-version = "1.13.28"
+version = "1.13.34"
 author = "J, Vriff"
-description = "Unlocks higher resolutions and scales UI. Menus preserve their original 4:3 aspect ratio and expand the background borders with upscaled vanilla backgrounds. Font scaling method, provided by Vriff. NOTE: requires Scaled Kotor texture and font files in the game's override directory."
+description = "Unlocks higher resolutions and scales UI. Menus preserve their original 4:3 aspect ratio and expand the background borders with upscaled vanilla backgrounds; loading screens can optionally stretch to the display. Font scaling method, provided by Vriff. NOTE: requires Scaled Kotor texture and font files in the game's override directory."
 
 requires = []
 

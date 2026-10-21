@@ -3,4 +3,6 @@ EXPORTS
     scaleMenuPanelTree
     fixAlignmentSliderThumb
     scalePazaakGameCards
+    prepareLoadingScreenDraw
+    reloadStretchLoadingScreens
     refreshResolutionDependentUi

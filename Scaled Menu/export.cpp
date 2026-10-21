@@ -176,6 +176,27 @@ extern "C" void __cdecl scalePazaakGameCards(void* pazaakGame) {
     }
 }
 
+extern "C" void __cdecl prepareLoadingScreenDraw(void* loadingScreen) {
+    MenuScale::prepareLoadingScreenDraw(loadingScreen);
+}
+
+extern "C" void __cdecl reloadStretchLoadingScreens(
+    const char*, const char* value) {
+    MenuScale::setStretchLoadingScreens(value);
+    const UniversalScaleState* scale = ResolutionScale::get();
+    if (!scale) {
+        return;
+    }
+
+    for (PanelBaseline& baseline : panelBaselines) {
+        if (baseline.panel &&
+            MenuScale::isLoadingScreenPanel(baseline.panel)) {
+            restoreAndScale(baseline, scale->layoutGeneration);
+            MenuScale::prepareLoadingScreenDraw(baseline.panel);
+        }
+    }
+}
+
 extern "C" void __cdecl refreshResolutionDependentUi() {
     __try {
         const UniversalScaleState* scale = ResolutionScale::get();

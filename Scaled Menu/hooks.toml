@@ -15,6 +15,20 @@ exclude_from_restore = []
 source = "ecx"
 type = "pointer"
 
+# The loading constructor reapplies its 0x60 centering flags after the panel
+# tree has been scaled. Correct only those late-set flags before drawing; the
+# panel-tree owner already controls the root, border, and all child rectangles.
+[[hooks]]
+address = 0x0067AB09
+type = "detour"
+function = "prepareLoadingScreenDraw"
+original_bytes = [0x8B, 0x46, 0x18, 0x0F, 0xBF, 0x48, 0x6E]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esi"
+type = "pointer"
+
 # CSWGuiSlider::SetExtent rebuilds its thumb after every value/layout update.
 # Correct only the lbl_alignarr thumb after the native calculation completes.
 [[hooks]]

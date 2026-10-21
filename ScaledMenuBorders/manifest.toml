@@ -1,9 +1,9 @@
 [patch]
 id = "scaled-menu-borders"
 name = "Scaled Menu Borders"
-version = "1.4.1"
+version = "1.5.4"
 author = "J"
-description = "Dynamically adjusts menu borders to fit most resolutions."
+description = "Dynamically adjusts centered menu background borders."
 
 requires = ["scaled-kotor"]
 

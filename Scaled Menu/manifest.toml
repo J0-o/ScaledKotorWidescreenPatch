@@ -1,9 +1,9 @@
 [patch]
 id = "menu-scale-v1"
 name = "Scaled Menu"
-version = "1.3.8"
+version = "1.3.9"
 author = "J"
-description = "Scales and centers menus and full-screen fades"
+description = "Scales and centers menus, loading-screen trees, and full-screen fades"
 
 requires = ["scaled-kotor"]
 
