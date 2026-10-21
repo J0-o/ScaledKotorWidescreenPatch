@@ -97,6 +97,21 @@ extern "C" void __cdecl scaleScrollbarWidth(void* listboxPtr) {
     }
 }
 
+extern "C" void __cdecl scaleScrollbarArrowExtent(void* extentPtr) {
+    const UniversalScaleState* scale = ResolutionScale::get();
+    if (!extentPtr || !scale) {
+        return;
+    }
+
+    __try {
+        int* extent = static_cast<int*>(extentPtr);
+        extent[2] = scaleUiValue(extent[2], *scale);
+        extent[3] = scaleUiValue(extent[3], *scale);
+    }
+    __except (EXCEPTION_EXECUTE_HANDLER) {
+    }
+}
+
 extern "C" void __cdecl refreshResolutionDependentUi() {
     refreshLiveScrollbars();
 }

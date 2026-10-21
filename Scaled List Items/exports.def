@@ -6,4 +6,6 @@ EXPORTS
     setFeatStoredHeight
     setGenericListRowHeight
     prepareAbilitiesListLayout
+    scaleModOptionsRows
+    scaleOptionsCheckbox
     refreshResolutionDependentUi

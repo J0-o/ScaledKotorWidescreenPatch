@@ -1,4 +1,5 @@
 LIBRARY ScaledScrollbars
 EXPORTS
     scaleScrollbarWidth
+    scaleScrollbarArrowExtent
     refreshResolutionDependentUi
