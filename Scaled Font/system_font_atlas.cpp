@@ -31,7 +31,7 @@ constexpr float DescriptionFontHeight = 16.0f / 100.0f;
 constexpr int LogicalFontHeightPixels = 16;
 constexpr int ExtraVerticalCropPixels = 2;
 constexpr float UiHorizontalCropPixels = 1.0f;
-constexpr float WrapSafetyPixels = 0.5f;
+constexpr float LetterSpacingPixels = 1.0f;
 
 struct Vec3 { float x, y, z; };
 struct PointF { float x, y; };
@@ -546,7 +546,7 @@ FontMetrics::Values deriveMetrics(const FontState& state, float absoluteScale) {
     FontMetrics::Values metrics = FontMetrics::derive(state.original,
         {state.atlas->side, state.atlas->lineHeight, state.atlas->ascent},
         absoluteScale);
-    metrics.spacingR = WrapSafetyPixels / 100.0f;
+    metrics.spacingR = LetterSpacingPixels / 100.0f;
     return metrics;
 }
 
