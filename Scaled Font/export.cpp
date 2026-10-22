@@ -59,6 +59,16 @@ extern "C" void __cdecl endMsdfGuiGlyph() {
     FontDraw::endGuiGlyph();
 }
 
+extern "C" void __cdecl applyMsdfGuiWrapInset(
+        void* guiString, void* fontInfo, short* wrapWidth) {
+    if (!guiString || !fontInfo || !wrapWidth || *wrapWidth <= 1) return;
+    const float pointScale = *reinterpret_cast<float*>(
+        static_cast<char*>(guiString) + 0x40);
+    const int inset = SystemFontAtlas::guiWrapInset(fontInfo, pointScale);
+    if (inset <= 0) return;
+    *wrapWidth = static_cast<short>(*wrapWidth > inset ? *wrapWidth - inset : 1);
+}
+
 extern "C" void __cdecl prepareMsdfPrimaryGeometry(
         void* vertices, int count, void* caurFontSlot) {
     FontDraw::textOutGeometry(fontInfoFromStackSlot(caurFontSlot), vertices, count);

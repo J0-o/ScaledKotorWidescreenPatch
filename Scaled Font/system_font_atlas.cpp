@@ -615,6 +615,16 @@ bool renderPadding(void* fontInfo, RenderPadding& out) {
     return true;
 }
 
+int guiWrapInset(void* fontInfo, float pointScale) {
+    RenderPadding padding{};
+    if (pointScale <= 0.0f || !renderPadding(fontInfo, padding)) return 0;
+    // GUI wrapping measures in pixels: logical font units * point scale * 100.
+    // Reserve the full horizontal growth added later to both sides of the
+    // logical glyph plane by the MSDF draw path.
+    return static_cast<int>(std::ceil(
+        2.0f * padding.logical * pointScale * 100.0f));
+}
+
 bool expandGlyphUv(void* fontInfo, unsigned int glyph, const RenderPadding& padding,
                    GlyphUvRestore& saved) {
     FontState* state = fontState(fontInfo);
