@@ -1,7 +1,7 @@
 [patch]
 id = "font-scale-2x-v1"
 name = "Scaled Font"
-version = "2.5.13"
+version = "2.5.14"
 author = "J, Vriff"
 description = "Loads Override\\ui.ttf and Override\\body.ttf, crops TTF line cells two pixels vertically and the UI font one pixel per horizontal side."
 

@@ -64,7 +64,7 @@ struct Atlas {
 };
 
 Atlas g_atlases[2] = {
-    Atlas(L"Override\\ui.ttf", L"Squarish Sans CT", 400),
+    Atlas(L"Override\\ui.ttf", L"Kotor Sans CT", 400),
     Atlas(L"Override\\body.ttf", L"Arimo", 700)
 };
 
