@@ -7,7 +7,7 @@ description = "Expands supported resolutions and scales all Menus/HUD."
 patch = "scaled-kotor"
 
 [[options]]
-name = "UI Scale"
+name = "Text Size"
 
 # slider will provide an integer between min and max.
 # The game's slider control has no minimum -- it runs 0..(max - min) internally,
@@ -25,7 +25,7 @@ key = "ScaleFactor"
 description = "Controls how text and some UI elements are scaled."
 
 [[options]]
-name = "HUD Scale"
+name = "HUD Size"
 type = "slider"
 min = 5
 max = 20
@@ -33,7 +33,7 @@ default = 10
 ini = "ScaledKotor.ini"
 category = "Scaled Kotor"
 key = "HudScaleFactor"
-description = "Multiplies the resolution-derived HUD size. 10 is 1.0x."
+description = "Adjusts HUD size."
 
 [[options]]
 name = "Stretched Loading Screens"
@@ -46,8 +46,8 @@ function = "reloadStretchLoadingScreens"
 description = "Stretches loading-screen textures to fill the full display instead of preserving their aspect ratio and side borders."
 
 [[options]]
-name = "Reload Scale Factors"
+name = "Apply Changes"
 type = "button"
 key = "ScaleFactor"
 function = "reloadScaleFactor"
-description = "Rereads ScaleFactor and HudScaleFactor, then reapplies scaled UI, font, and HUD metrics."
+description = "Refreshes Scaled Kotor to reflect changes."
