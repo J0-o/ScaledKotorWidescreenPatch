@@ -26,6 +26,24 @@ exclude_from_restore = []
 source = "esp+24"
 type = "pointer"
 
+# Scale the completed vanilla quantity rectangle with full-width integers.
+# Its width and top are otherwise encoded as signed imm8 operands, which cannot
+# represent the larger values produced by high content scales.
+[[hooks]]
+address = 0x006B5356
+type = "detour"
+function = "scaleInventoryQuantityRect"
+original_bytes = [0x8D, 0x8E, 0x24, 0x03, 0x00, 0x00]
+exclude_from_restore = []
+
+[[hooks.parameters]]
+source = "esp+32"
+type = "pointer"
+
+[[hooks.parameters]]
+source = "[esp+0]"
+type = "int"
+
 # The two lbl_hex_3 icon-border states are created in tile mode by default.
 # Use stretch mode so a scaled icon keeps one border instead of repeating it.
 [[hooks]]

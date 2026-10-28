@@ -69,6 +69,10 @@ extern "C" void __cdecl applyMsdfGuiWrapInset(
     *wrapWidth = static_cast<short>(*wrapWidth > inset ? *wrapWidth - inset : 1);
 }
 
+extern "C" int __cdecl getUiMsdfWrapInset(float pointScale) {
+    return SystemFontAtlas::uiWrapInset(pointScale);
+}
+
 extern "C" void __cdecl prepareMsdfPrimaryGeometry(
         void* vertices, int count, void* caurFontSlot) {
     FontDraw::textOutGeometry(fontInfoFromStackSlot(caurFontSlot), vertices, count);

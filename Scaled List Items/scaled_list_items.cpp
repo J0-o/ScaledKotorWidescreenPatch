@@ -6,8 +6,6 @@ namespace {
 
 constexpr DWORD ItemVisualHeightAddress = 0x006B527F;
 constexpr DWORD QuantityHeightAddress = 0x006B5332;
-constexpr DWORD QuantityWidthShortAddress = 0x006B5339;
-constexpr DWORD QuantityWidthLongAddress = 0x006B533C;
 constexpr DWORD QuantityTopAddress = 0x006B5351;
 constexpr DWORD SkillVisualHeightAddress = 0x006AB8EF;
 constexpr DWORD AppManagerPointerAddress = 0x007A39FC;
@@ -102,8 +100,6 @@ void writeStackValue(void* slot, int vanillaValue,
 void patchItemVisualConstants(const UniversalScaleState& scale) {
     writeInt(ItemVisualHeightAddress, adjustedValue(0x38, scale));
     writeInt(QuantityHeightAddress, adjustedValue(0x13, scale));
-    writeByte(QuantityWidthShortAddress, adjustedByte(0x15, scale));
-    writeByte(QuantityWidthLongAddress, adjustedByte(0x15, scale));
     writeByte(QuantityTopAddress, adjustedByte(0x25, scale));
 }
 
@@ -459,6 +455,32 @@ extern "C" void __cdecl setInventoryItemRowHeight(void* heightSlot) {
 
     writeStackValue(heightSlot, 0x38, *scale);
     patchItemVisualConstants(*scale);
+}
+
+extern "C" void __cdecl scaleInventoryQuantityRect(
+        void* rectPtr, int quantity) {
+    const UniversalScaleState* scale = getScale();
+    if (!scale || !rectPtr) {
+        return;
+    }
+
+    Rect* rect = static_cast<Rect*>(rectPtr);
+    // Native layout already derives this edge from the scaled item extent.
+    const int right = rect->left + rect->width;
+    rect->width = adjustedValue(rect->width, *scale);
+    rect->left = right - rect->width;
+    if (quantity >= 10 && quantity <= 99) {
+        using GetUiMsdfWrapInsetFn = int (__cdecl*)(float);
+        HMODULE module = GetModuleHandleA("scaled-kotor.dll");
+        GetUiMsdfWrapInsetFn getInset = module ?
+            reinterpret_cast<GetUiMsdfWrapInsetFn>(
+                GetProcAddress(module, "getUiMsdfWrapInset")) : nullptr;
+        if (getInset) {
+            const int inset = getInset(1.0f);
+            rect->left -= inset / 2;
+            rect->width += inset;
+        }
+    }
 }
 
 extern "C" void __cdecl setSkillItemRowHeight(void* heightSlot) {

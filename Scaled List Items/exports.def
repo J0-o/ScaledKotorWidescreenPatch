@@ -1,6 +1,7 @@
 LIBRARY TwoXListItemHeight
 EXPORTS
     setInventoryItemRowHeight
+    scaleInventoryQuantityRect
     setSkillItemRowHeight
     setFeatGroupRowHeight
     setFeatStoredHeight

@@ -20,6 +20,7 @@ struct GlyphUvRestore {
 };
 bool renderPadding(void* fontInfo, RenderPadding& out);
 int guiWrapInset(void* fontInfo, float pointScale);
+int uiWrapInset(float pointScale);
 bool expandGlyphUv(void* fontInfo, unsigned int glyph, const RenderPadding& padding,
                    GlyphUvRestore& saved);
 void restoreGlyphUv(const GlyphUvRestore& saved);
