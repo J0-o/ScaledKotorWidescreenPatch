@@ -78,7 +78,6 @@ struct FontState {
 };
 
 std::map<void*, FontState> g_fonts;
-float g_uiLogicalPadding = 0.0f;
 
 Atlas* atlasForResource(const char* name) {
     if (!_stricmp(name, "dialogfont10x10") ||
@@ -579,12 +578,6 @@ void installFont(void* fontInfo, Atlas& atlas) {
     std::memcpy(state.lower, atlas.lower, coordinates);
     writeMetrics(fontInfo, metrics);
     g_fonts[fontInfo] = state;
-    if (&atlas == &g_atlases[0]) {
-        const float logicalHeight = *reinterpret_cast<float*>(
-            static_cast<char*>(fontInfo) + g_fontHeight);
-        g_uiLogicalPadding = logicalHeight *
-            static_cast<float>(atlas.padding) / atlas.lineHeight;
-    }
 }
 
 } // namespace
@@ -629,12 +622,6 @@ bool renderPadding(void* fontInfo, RenderPadding& out) {
     out = {static_cast<float>(atlas.padding) / atlas.side,
         logicalHeight * static_cast<float>(atlas.padding) / atlas.lineHeight};
     return true;
-}
-
-int uiWrapInset(float pointScale) {
-    if (pointScale <= 0.0f || g_uiLogicalPadding <= 0.0f) return 0;
-    return static_cast<int>(std::ceil(
-        2.0f * g_uiLogicalPadding * pointScale * 100.0f));
 }
 
 bool expandGlyphUv(void* fontInfo, unsigned int glyph, const RenderPadding& padding,

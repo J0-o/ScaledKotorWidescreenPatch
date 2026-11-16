@@ -458,7 +458,7 @@ extern "C" void __cdecl setInventoryItemRowHeight(void* heightSlot) {
 }
 
 extern "C" void __cdecl scaleInventoryQuantityRect(
-        void* rectPtr, int quantity) {
+        void* rectPtr, int) {
     const UniversalScaleState* scale = getScale();
     if (!scale || !rectPtr) {
         return;
@@ -469,18 +469,6 @@ extern "C" void __cdecl scaleInventoryQuantityRect(
     const int right = rect->left + rect->width;
     rect->width = adjustedValue(rect->width, *scale);
     rect->left = right - rect->width;
-    if (quantity >= 10 && quantity <= 99) {
-        using GetUiMsdfWrapInsetFn = int (__cdecl*)(float);
-        HMODULE module = GetModuleHandleA("scaled-kotor.dll");
-        GetUiMsdfWrapInsetFn getInset = module ?
-            reinterpret_cast<GetUiMsdfWrapInsetFn>(
-                GetProcAddress(module, "getUiMsdfWrapInset")) : nullptr;
-        if (getInset) {
-            const int inset = getInset(1.0f);
-            rect->left -= inset / 2;
-            rect->width += inset;
-        }
-    }
 }
 
 extern "C" void __cdecl setSkillItemRowHeight(void* heightSlot) {
