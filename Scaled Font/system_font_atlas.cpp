@@ -30,14 +30,15 @@ constexpr float UiFontHeight = 16.0f / 100.0f;
 constexpr float DescriptionFontHeight = 16.0f / 100.0f;
 constexpr int LogicalFontHeightPixels = 16;
 constexpr int ExtraVerticalCropPixels = 2;
-constexpr float UiHorizontalCropPixels = 1.0f;
-constexpr float LetterSpacingPixels = 1.0f;
+constexpr float UiInkMarginPixels = 0.5f;
 
 struct Vec3 { float x, y, z; };
 struct PointF { float x, y; };
 struct Edge { PointF a, b; int mask; };
 struct Glyph {
     int x, y, w, h, advance;
+    int inkLeft = 0;
+    int inkRight = 0;
     int inkTop = 0;
     int inkBottom = 0;
     bool hasInk = false;
@@ -271,6 +272,8 @@ bool extractGlyph(HDC dc, WCHAR ch, Glyph& out, int lineHeight, int ascent,
 
     if (nativeBytes == 0) return true; // Space and other non-ink glyphs.
 
+    out.inkLeft = gm.gmptGlyphOrigin.x;
+    out.inkRight = out.inkLeft + static_cast<int>(gm.gmBlackBoxX);
     out.inkTop = gm.gmptGlyphOrigin.y;
     out.inkBottom = out.inkTop - static_cast<int>(gm.gmBlackBoxY);
     out.hasInk = true;
@@ -480,19 +483,26 @@ bool generateImpl(Atlas& atlas) {
     }
     atlas.side = side;
     atlas.rgb.assign(static_cast<size_t>(side) * side * 3, 0);
-    const float horizontalCrop = &atlas == &g_atlases[0] ?
-        UiHorizontalCropPixels * atlas.lineHeight / LogicalFontHeightPixels : 0.0f;
+    const bool uiAtlas = &atlas == &g_atlases[0];
+    const float inkMargin =
+        UiInkMarginPixels * atlas.lineHeight / LogicalFontHeightPixels;
     for (int i = 0; i < 256; ++i) {
         Glyph& g = glyphs[i];
-        if (g.advance <= horizontalCrop * 2.0f) return false;
         unsigned char* dst = atlas.rgb.data() + ((size_t)g.y * side + g.x) * 3;
         makeDistanceField(g, dst, side * 3);
-        // KOTOR measures these rectangles. Publish ONLY the logical advance /
-        // line cell, not its MSDF border. FontDraw expands UVs and the emitted
-        // planes together, after layout, so bearings/overhang are still drawn.
-        atlas.upper[i] = {(g.x + atlas.padding + horizontalCrop) / side,
+        const float logicalLeft = uiAtlas && g.hasInk ?
+            std::max(0.0f, static_cast<float>(g.inkLeft) - inkMargin) : 0.0f;
+        const float logicalRight = uiAtlas && g.hasInk ?
+            std::min(static_cast<float>(g.advance),
+                static_cast<float>(g.inkRight) + inkMargin) :
+            static_cast<float>(g.advance);
+        if (logicalRight <= logicalLeft) return false;
+        // KOTOR measures these rectangles. UI ink glyphs receive a fixed
+        // logical margin; blank glyphs retain their natural advance. Neither
+        // rectangle includes the MSDF border, which FontDraw adds after layout.
+        atlas.upper[i] = {(g.x + atlas.padding + logicalLeft) / side,
                    1.0f - (float)(g.y + atlas.padding) / side, 0};
-        atlas.lower[i] = {(g.x + atlas.padding + g.advance - horizontalCrop) / side,
+        atlas.lower[i] = {(g.x + atlas.padding + logicalRight) / side,
                    1.0f - (float)(g.y + atlas.padding + atlas.lineHeight) / side, 0};
     }
     // The glyph packer writes top-down CPU rows, while the KOTOR UV tables
@@ -547,7 +557,6 @@ FontMetrics::Values deriveMetrics(const FontState& state, float absoluteScale) {
     FontMetrics::Values metrics = FontMetrics::derive(state.original,
         {state.atlas->side, state.atlas->lineHeight, state.atlas->ascent},
         absoluteScale);
-    metrics.spacingR = LetterSpacingPixels / 100.0f;
     return metrics;
 }
 
@@ -620,16 +629,6 @@ bool renderPadding(void* fontInfo, RenderPadding& out) {
     out = {static_cast<float>(atlas.padding) / atlas.side,
         logicalHeight * static_cast<float>(atlas.padding) / atlas.lineHeight};
     return true;
-}
-
-int guiWrapInset(void* fontInfo, float pointScale) {
-    RenderPadding padding{};
-    if (pointScale <= 0.0f || !renderPadding(fontInfo, padding)) return 0;
-    // GUI wrapping measures in pixels: logical font units * point scale * 100.
-    // Reserve the full horizontal growth added later to both sides of the
-    // logical glyph plane by the MSDF draw path.
-    return static_cast<int>(std::ceil(
-        2.0f * padding.logical * pointScale * 100.0f));
 }
 
 int uiWrapInset(float pointScale) {

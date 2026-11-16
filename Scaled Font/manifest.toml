@@ -1,9 +1,9 @@
 [patch]
 id = "font-scale-2x-v1"
 name = "Scaled Font"
-version = "2.5.20"
+version = "2.5.34"
 author = "J, Vriff"
-description = "Loads Override\\ui.ttf and Override\\body.ttf, crops TTF line cells two pixels vertically and the UI font one pixel per horizontal side."
+description = "Loads Override\\ui.ttf and Override\\body.ttf, crops TTF line cells two pixels vertically, and gives each visible UI glyph a half-pixel horizontal ink margin."
 
 requires = ["scaled-kotor"]
 

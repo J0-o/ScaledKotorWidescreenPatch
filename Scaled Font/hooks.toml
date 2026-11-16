@@ -273,28 +273,6 @@ type = "pointer"
 # line counts, widths and allocation ownership remain under KOTOR's control.
 # The operative machine-code replacements are declared below.
 
-# WrapStrings has resolved -1 to the control width at native [esp+0x24]. KPM
-# stack-source offsets are decimal, so esp+36 addresses that slot. Reserve the
-# active atlas's scale-aware horizontal render expansion before native line
-# fitting; drawing and clipping retain the control's original bounds.
-[[hooks]]
-address = 0x0045A36B
-type = "detour"
-function = "applyMsdfGuiWrapInset"
-original_bytes = [0xD9, 0x85, 0x34, 0x05, 0x00, 0x00]
-
-[[hooks.parameters]]
-source = "esi"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "edi"
-type = "pointer"
-
-[[hooks.parameters]]
-source = "esp+36"
-type = "pointer"
-
 # Split the fitting prefix; a too-wide glyph occupies one line, never the entire remainder.
 [[hooks]]
 address = 0x0045A5E0

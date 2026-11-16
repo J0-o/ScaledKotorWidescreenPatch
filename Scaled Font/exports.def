@@ -11,7 +11,6 @@ EXPORTS
     beginMsdfGuiGlyph
     beginMsdfGuiHyphen
     endMsdfGuiGlyph
-    applyMsdfGuiWrapInset
     getUiMsdfWrapInset
     prepareMsdfPrimaryGeometry
     prepareMsdfInlineGeometry
