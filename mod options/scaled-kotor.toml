@@ -15,7 +15,7 @@ name = "Text Size"
 # negative, which the control on its own could not represent.
 type = "slider"
 min = 10
-max = 15
+max = 20
 
 default = 12
 
